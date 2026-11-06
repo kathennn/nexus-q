@@ -131,7 +131,8 @@ jobs:
 
   swift:
     name: Swift Package bindings (macOS ARM64)
-    runs-on: macos-14
+    # macOS 14 runners were retired by GitHub on 2026-11-02.
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

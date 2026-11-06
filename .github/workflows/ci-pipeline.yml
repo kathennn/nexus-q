@@ -11,9 +11,11 @@ on:
 permissions:
   contents: read
 
+# Never cancel a long-running security/release-quality pipeline just because
+# another push or manual run targets the same ref. New runs wait for the active run.
 concurrency:
   group: nexusq-sequential-ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   msrv:
