@@ -21,12 +21,13 @@
 //! 0003's constraint that envelopes are for files that fit comfortably
 //! in memory. Streaming envelopes land in a later phase.
 //!
-//! ## Atomicity
+//! ## Output safety
 //!
-//! File operations use plain `std::fs::write` in this phase. The
-//! atomic write pattern (temp file, fsync, rename, directory fsync)
-//! that the vault uses is applied to vault files only. Applying it to
-//! every `.nqx` file is a Phase 10 (Storage) concern.
+//! File operations publish output without replacing an existing path:
+//! bytes are written to an exclusive temporary file in the destination
+//! directory, synced, and hard-linked into place. This prevents readers
+//! from observing partial output and avoids clobbering an existing file.
+//! Input and envelope bytes are still processed entirely in memory.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -76,8 +77,7 @@ pub fn encrypt_file_to_public_key(
     let envelope_bytes =
         envelope::build_envelope_to_public_key(recipient_public_key, &plaintext, metadata)?;
     let output = encrypted_path_for(input);
-    fs::write(&output, &envelope_bytes)?;
-    restrict_file_permissions(&output)?;
+    write_new_atomic(&output, &envelope_bytes)?;
     Ok(output)
 }
 
@@ -119,8 +119,7 @@ pub fn encrypt_file_with_key(
     let plaintext = fs::read(input)?;
     let envelope_bytes = envelope::build_envelope(kek, key_record, &plaintext, metadata)?;
     let output = encrypted_path_for(input);
-    fs::write(&output, &envelope_bytes)?;
-    restrict_file_permissions(&output)?;
+    write_new_atomic(&output, &envelope_bytes)?;
     Ok(output)
 }
 
@@ -148,33 +147,107 @@ where
     Ok(())
 }
 
-/// Writes a `Zeroizing<Vec<u8>>` to disk, then drops the buffer.
-///
-/// On failure the destination is left as it was: `write_all` truncates
-/// the file only after the buffer is accepted, and any partial write
-/// is detected by the caller (the error is propagated).
+/// Writes plaintext without replacing an existing destination.
 fn write_zeroizing(path: &Path, data: &Zeroizing<Vec<u8>>) -> std::io::Result<()> {
-    fs::write(path, data.as_slice())?;
-    restrict_file_permissions(path)
+    write_new_atomic(path, data.as_slice())
 }
 
-#[cfg(unix)]
-fn restrict_file_permissions(path: &Path) -> std::io::Result<()> {
-    use std::os::unix::fs::PermissionsExt;
-    let mut permissions = fs::metadata(path)?.permissions();
-    permissions.set_mode(0o600);
-    fs::set_permissions(path, permissions)
+/// Publishes a complete file atomically and only if `path` does not exist.
+/// The temporary file is created in the same directory so hard-link
+/// publication cannot cross filesystems. A hard link, unlike rename,
+/// fails rather than replacing a destination created by a racing process.
+fn write_new_atomic(path: &Path, data: &[u8]) -> std::io::Result<()> {
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let file_name = path.file_name().unwrap_or_default();
+    let (temp_path, mut file) = create_unique_temp_file(parent, file_name)?;
+
+    let result = (|| {
+        use std::io::Write;
+        file.write_all(data)?;
+        file.sync_all()?;
+        drop(file);
+        fs::hard_link(&temp_path, path)?;
+        fs::remove_file(&temp_path)?;
+        #[cfg(unix)]
+        {
+            let dir = fs::File::open(parent)?;
+            match dir.sync_all() {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::Unsupported => {}
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
+    })();
+    let _ = fs::remove_file(&temp_path);
+    result
 }
 
-#[cfg(not(unix))]
-fn restrict_file_permissions(_path: &Path) -> std::io::Result<()> {
-    Ok(())
+fn create_unique_temp_file(
+    parent: &Path,
+    file_name: &std::ffi::OsStr,
+) -> std::io::Result<(PathBuf, fs::File)> {
+    for _ in 0..16 {
+        let mut suffix = [0u8; 16];
+        getrandom::fill(&mut suffix).map_err(|e| std::io::Error::other(e.to_string()))?;
+        let mut name = file_name.to_os_string();
+        name.push(format!(".tmp-{}", hex::encode(suffix)));
+        let temp_path = parent.join(name);
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        match options.open(&temp_path) {
+            Ok(file) => return Ok((temp_path, file)),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e),
+        }
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        "could not allocate unique file temp",
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use tempfile::TempDir;
+
+    #[test]
+    fn atomic_writer_does_not_overwrite_existing_destination() {
+        let dir = TempDir::new().unwrap();
+        let destination = dir.path().join("existing.bin");
+        fs::write(&destination, b"original").unwrap();
+
+        let error = write_new_atomic(&destination, b"replacement").unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read(&destination).unwrap(), b"original");
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn atomic_writer_publishes_complete_file_with_private_permissions() {
+        let dir = TempDir::new().unwrap();
+        let destination = dir.path().join("new.bin");
+        write_new_atomic(&destination, b"complete payload").unwrap();
+        assert_eq!(fs::read(&destination).unwrap(), b"complete payload");
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(destination).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
+    }
 
     #[test]
     fn encrypted_path_appends_extension() {
