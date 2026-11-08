@@ -227,6 +227,30 @@ pub struct Session {
     audit_failed: Cell<bool>,
 }
 
+/// A failed session lock that retains ownership of the still-unlocked session.
+#[derive(Debug, thiserror::Error)]
+#[error("failed to lock vault session: {source}")]
+pub struct SessionLockError {
+    session: Box<Session>,
+    #[source]
+    source: VaultError,
+}
+
+impl SessionLockError {
+    /// Returns the session and the error that prevented it from being locked.
+    ///
+    /// The returned session remains unlocked. An audit-write failure still
+    /// prevents further persistence of its in-memory state.
+    pub fn into_parts(self) -> (Session, VaultError) {
+        (*self.session, self.source)
+    }
+
+    /// Returns the error that prevented the session from being locked.
+    pub fn error(&self) -> &VaultError {
+        &self.source
+    }
+}
+
 impl std::fmt::Debug for Session {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Session")
@@ -1854,7 +1878,26 @@ impl Session {
     ///
     /// Returns an error if the body cannot be re-encrypted or the file
     /// cannot be written.
-    pub fn lock(mut self) -> Result<Vault, VaultError> {
+    pub fn lock(self) -> Result<Vault, VaultError> {
+        self.lock_recoverable()
+            .map_err(|failure| failure.into_parts().1)
+    }
+
+    /// Attempts to lock the session while preserving it if persistence fails.
+    ///
+    /// Applications that keep a session in managed state should use this
+    /// method and restore the session from SessionLockError on failure.
+    pub fn lock_recoverable(mut self) -> Result<Vault, SessionLockError> {
+        match self.persist_lock() {
+            Ok(()) => Ok(self.vault.clone()),
+            Err(source) => Err(SessionLockError {
+                session: Box::new(self),
+                source,
+            }),
+        }
+    }
+
+    fn persist_lock(&mut self) -> Result<(), VaultError> {
         if self.audit_failed.get() {
             return Err(VaultError::AuditWriteFailed);
         }
@@ -1864,7 +1907,7 @@ impl Session {
             self.body.audit_anchor = log.head_event_hash().map(ToOwned::to_owned);
         }
         self.vault.write_body(&self.body, &self.kek)?;
-        Ok(self.vault)
+        Ok(())
     }
 }
 
@@ -4016,6 +4059,34 @@ mod tests {
         // produce five events; identity_sign adds the sixth.
         session.verify_audit().unwrap();
         assert_eq!(session.audit_events().unwrap().len(), 6);
+    }
+
+    #[test]
+    fn recoverable_lock_failure_preserves_the_unlocked_session() {
+        let dir = TempDir::new().unwrap();
+        let vault_path = temp_path(&dir, "v.nqv");
+        Vault::create(&vault_path, b"pw", None).unwrap();
+        let vault = Vault::open(&vault_path).unwrap();
+        let mut session = vault.unlock(b"pw").unwrap();
+
+        // Point persistence at an existing directory to force a real I/O error.
+        session.vault.path = dir.path().to_path_buf();
+        let failure = session.lock_recoverable().unwrap_err();
+        let (mut session, error) = failure.into_parts();
+        assert!(matches!(error, VaultError::Io(_)));
+
+        // Restore the destination and prove the recovered session is usable.
+        session.vault.path = vault_path.clone();
+        let key_id = session
+            .generate_key(Algorithm::Ed25519, Purpose::Sign)
+            .unwrap();
+        let vault = session.lock().unwrap();
+        let reopened = vault.unlock(b"pw").unwrap();
+        assert!(
+            reopened
+                .list_keys()
+                .any(|record| record.key_id() == &key_id)
+        );
     }
 
     #[test]
