@@ -310,7 +310,6 @@ pub mod hybrid {
     /// Returns [`KemError::Randomness`] if the operating system cannot provide
     /// the required random seed. Callers handling untrusted or production
     /// operations should prefer this fallible API over [`generate`].
-    #[must_use]
     pub fn try_generate() -> Result<KeyPair, KemError> {
         try_generate_with_rng(|seed| getrandom::fill(seed).map_err(|_| KemError::Randomness))
     }
