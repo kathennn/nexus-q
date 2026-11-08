@@ -19,7 +19,7 @@ pub mod wrapping;
 
 pub use algorithm::{Algorithm, AlgorithmError, Category};
 pub use body::{CURRENT_SCHEMA_VERSION, VaultBody, VaultMetadata};
-pub use container::{Session, Vault, VaultError};
+pub use container::{Session, SessionLockError, Vault, VaultError};
 pub use envelope::{
     Envelope, EnvelopeAlgorithm, EnvelopeHeader, FORMAT_VERSION as ENVELOPE_FORMAT_VERSION,
     MAGIC as ENVELOPE_MAGIC,
