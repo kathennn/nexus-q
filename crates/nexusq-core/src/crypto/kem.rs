@@ -303,12 +303,37 @@ pub mod hybrid {
         Ok(expand_seed(&seed))
     }
 
-    /// Generates a hybrid key pair.
+    /// Generates a hybrid key pair using the operating system CSPRNG.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`KemError::Randomness`] if the operating system cannot provide
+    /// the required random seed. Callers handling untrusted or production
+    /// operations should prefer this fallible API over [`generate`].
+    #[must_use]
+    pub fn try_generate() -> Result<KeyPair, KemError> {
+        try_generate_with_rng(|seed| getrandom::fill(seed).map_err(|_| KemError::Randomness))
+    }
+
+    /// Generates a hybrid key pair using the operating system CSPRNG.
+    ///
+    /// This compatibility wrapper panics if the OS RNG fails. New code should
+    /// use [`try_generate`] and handle [`KemError::Randomness`] explicitly.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the operating system cannot provide the required random seed.
     #[must_use]
     pub fn generate() -> KeyPair {
+        try_generate().expect("X-Wing key generation failed; use try_generate to handle errors")
+    }
+
+    pub(super) fn try_generate_with_rng(
+        fill: impl FnOnce(&mut [u8]) -> Result<(), KemError>,
+    ) -> Result<KeyPair, KemError> {
         let mut seed = Zeroizing::new([0u8; SECRET_KEY_LEN]);
-        getrandom::fill(seed.as_mut()).expect("OS RNG failed");
-        expand_seed(&seed)
+        fill(seed.as_mut())?;
+        Ok(expand_seed(&seed))
     }
 
     /// Encapsulates a shared secret to a serialized hybrid public key.
@@ -451,6 +476,21 @@ mod tests {
         assert_eq!(bytes.len(), ml_kem_768::PUBLIC_KEY_LEN);
         let parsed = ml_kem_768::public_key_from_bytes(&bytes).unwrap();
         assert_eq!(parsed.to_bytes(), pk.to_bytes());
+    }
+
+    #[test]
+    fn hybrid_try_generate_returns_randomness_error() {
+        let result = hybrid::try_generate_with_rng(|_| Err(KemError::Randomness));
+        assert!(matches!(result, Err(KemError::Randomness)));
+    }
+
+    #[test]
+    fn hybrid_try_generate_creates_a_usable_key_pair() {
+        let pair = hybrid::try_generate().expect("OS RNG should be available in tests");
+        let public_key = pair.public_key_bytes();
+        let (ciphertext, encapsulated_secret) = hybrid::encapsulate(&public_key).unwrap();
+        let decapsulated_secret = hybrid::decapsulate(&pair, &ciphertext).unwrap();
+        assert_eq!(encapsulated_secret.as_ref(), decapsulated_secret.as_ref());
     }
 
     #[test]

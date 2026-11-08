@@ -2060,7 +2060,7 @@ fn generate_material<S: RandomSource>(
             (secret, Some(public))
         }
         Algorithm::MlKem768 => {
-            let pair = crate::crypto::kem::hybrid::generate();
+            let pair = crate::crypto::kem::hybrid::try_generate()?;
             let secret = pair.secret_key_bytes();
             let public = pair.public_key_bytes();
             (secret, Some(public))
