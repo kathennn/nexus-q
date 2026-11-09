@@ -273,6 +273,16 @@ section{padding:clamp(48px,6vw,76px) 0}.eyebrow{font:700 12px "Instrument Sans",
 @media(max-width:700px){#github-activity .metrics{grid-template-columns:1fr 1fr}#github-activity .metric{padding:14px}#github-activity .metric strong{font-size:30px}}
 </style>
 <link rel="stylesheet" href="/nexus-global.css">
+<!-- NEXUS-Q analytics: Google Tag Manager is loaded only after analytics consent. -->
+<script>
+window.dataLayer=window.dataLayer||[];
+function gtag(){dataLayer.push(arguments);}
+gtag('consent','default',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',functionality_storage:'granted',security_storage:'granted'});
+gtag('js',new Date());
+window.nqLoadGTM=function(){if(window.__nqGtmLoaded)return;window.__nqGtmLoaded=true;gtag('consent','update',{analytics_storage:'granted',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});var s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtm.js?id=GTM-PMTD89PQ';document.head.appendChild(s);};
+try{if(localStorage.getItem('nq-analytics-consent')==='granted')window.nqLoadGTM();}catch(e){}
+</script>
+<link rel="stylesheet" href="/nq-analytics-consent.css">
 </head>
 <body>
 <nav><div class="wrap">
@@ -662,5 +672,7 @@ if(!still){addEventListener('resize',init);var hero=document.getElementById('top
 })();
 </script>
 <script src="/nexus-nav.js" defer></script>
+
+<script src="/nq-analytics-consent.js" defer></script>
 </body>
 </html>

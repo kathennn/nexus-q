@@ -37,6 +37,16 @@
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/nexus-global.css">
+<!-- NEXUS-Q analytics: Google Tag Manager is loaded only after analytics consent. -->
+<script>
+window.dataLayer=window.dataLayer||[];
+function gtag(){dataLayer.push(arguments);}
+gtag('consent','default',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',functionality_storage:'granted',security_storage:'granted'});
+gtag('js',new Date());
+window.nqLoadGTM=function(){if(window.__nqGtmLoaded)return;window.__nqGtmLoaded=true;gtag('consent','update',{analytics_storage:'granted',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});var s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtm.js?id=GTM-PMTD89PQ';document.head.appendChild(s);};
+try{if(localStorage.getItem('nq-analytics-consent')==='granted')window.nqLoadGTM();}catch(e){}
+</script>
+<link rel="stylesheet" href="/nq-analytics-consent.css">
 </head>
 <body>
 <header class="top"><div class="wrap"><a class="brand" href="/">NEXUS-Q</a><nav aria-label="Main navigation"><a href="/">Home</a><a href="/news" aria-current="page">News</a><a href="https://github.com/lecodev-26/nexus-q">GitHub repository</a></nav></div></header>
@@ -63,5 +73,7 @@
 <p>Our goal is to make the project easier to inspect and improve through transparent, independent technical feedback. If you review NEXUS-Q, please distinguish verified findings from assumptions and help us make the project's security posture clearer.</p>
 </main>
 <footer class="foot"><div class="wrap">NEXUS-Q · Open source cryptographic software · <a href="/">Project home</a> · <a href="https://github.com/lecodev-26/nexus-q">GitHub</a></div></footer>
+
+<script src="/nq-analytics-consent.js" defer></script>
 </body>
 </html>

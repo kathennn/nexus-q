@@ -22,6 +22,16 @@
     a:focus-visible{outline:2px solid var(--acc);outline-offset:4px}
     @media(prefers-reduced-motion:no-preference){.actions a{transition:transform .18s,border-color .18s}.actions a:hover{transform:translateY(-2px);border-color:var(--acc)}}
   </style>
+<!-- NEXUS-Q analytics: Google Tag Manager is loaded only after analytics consent. -->
+<script>
+window.dataLayer=window.dataLayer||[];
+function gtag(){dataLayer.push(arguments);}
+gtag('consent','default',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',functionality_storage:'granted',security_storage:'granted'});
+gtag('js',new Date());
+window.nqLoadGTM=function(){if(window.__nqGtmLoaded)return;window.__nqGtmLoaded=true;gtag('consent','update',{analytics_storage:'granted',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});var s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtm.js?id=GTM-PMTD89PQ';document.head.appendChild(s);};
+try{if(localStorage.getItem('nq-analytics-consent')==='granted')window.nqLoadGTM();}catch(e){}
+</script>
+<link rel="stylesheet" href="/nq-analytics-consent.css">
 </head>
 <body>
   <main>
@@ -34,5 +44,7 @@
       <a href="https://github.com/lecodev-26/nexus-q" rel="noopener">View on GitHub</a>
     </div>
   </main>
+
+<script src="/nq-analytics-consent.js" defer></script>
 </body>
 </html>
