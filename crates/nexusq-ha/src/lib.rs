@@ -8,7 +8,7 @@
 use std::{
     collections::{BTreeMap, HashMap},
     fs::{self, File, OpenOptions},
-    io::{BufRead, BufReader, Seek, Write},
+    io::{BufRead, BufReader, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex, RwLock,
@@ -613,10 +613,22 @@ fn append_frame(file: &mut File, frame: &JournalFrame) -> Result<(), HaError> {
     if encoded.len() > MAX_RECORD_BYTES * 4 + 4096 {
         return Err(HaError::InvalidRecord);
     }
-    file.write_all(&encoded)
+    let start = file.metadata().map_err(|_| HaError::StorageUnavailable)?.len();
+    if file
+        .write_all(&encoded)
         .and_then(|_| file.write_all(b"\n"))
         .and_then(|_| file.sync_data())
-        .map_err(|_| HaError::StorageUnavailable)
+        .is_err()
+    {
+        // A failed append may have written only part of a frame. Roll it back so
+        // later writes cannot be concatenated onto a torn JSON record.
+        file.set_len(start)
+            .and_then(|_| file.sync_data())
+            .and_then(|_| file.seek(SeekFrom::End(0)).map(|_| ()))
+            .map_err(|_| HaError::StorageUnavailable)?;
+        return Err(HaError::StorageUnavailable);
+    }
+    Ok(())
 }
 
 fn recover_frames(
@@ -625,19 +637,43 @@ fn recover_frames(
     tenant: &TenantId,
 ) -> Result<RecoveredFrames, HaError> {
     file.rewind().map_err(|_| HaError::StorageUnavailable)?;
-    let reader = BufReader::new(file.try_clone().map_err(|_| HaError::StorageUnavailable)?);
+    let mut reader = BufReader::new(file.try_clone().map_err(|_| HaError::StorageUnavailable)?);
     let mut committed = Vec::new();
     let mut pending: HashMap<u64, JournalRecord> = HashMap::new();
     let mut next_sequence = 1u64;
     let mut last_hash = [0u8; 32];
     let mut highest_term = 0u64;
-    for line in reader.lines() {
-        let line = line.map_err(|_| HaError::StorageUnavailable)?;
+    let mut valid_len = 0u64;
+    let mut line = Vec::new();
+    loop {
+        line.clear();
+        let bytes_read = reader
+            .read_until(b\n, &mut line)
+            .map_err(|_| HaError::StorageUnavailable)?;
+        if bytes_read == 0 {
+            break;
+        }
+        if line.last() != Some(&b\n) {
+            // A crash can interrupt the final append between any two bytes.
+            // Only discard an unterminated tail; complete malformed frames remain fatal.
+            file.set_len(valid_len)
+                .and_then(|_| file.sync_data())
+                .and_then(|_| file.seek(SeekFrom::End(0)).map(|_| ()))
+                .map_err(|_| HaError::StorageUnavailable)?;
+            break;
+        }
+        line.pop();
+        if line.last() == Some(&b\r) {
+            line.pop();
+        }
         if line.len() > MAX_RECORD_BYTES * 4 + 4096 {
             return Err(HaError::JournalCorrupt);
         }
         let frame: JournalFrame =
-            serde_json::from_str(&line).map_err(|_| HaError::JournalCorrupt)?;
+            serde_json::from_slice(&line).map_err(|_| HaError::JournalCorrupt)?;
+        valid_len = valid_len
+            .checked_add(bytes_read as u64)
+            .ok_or(HaError::JournalCorrupt)?;
         match frame {
             JournalFrame::Prepared { record } => {
                 if record.tenant != *tenant
@@ -1138,6 +1174,29 @@ mod tests {
         catalog.set_issuance(&alpha, false).unwrap();
         assert!(!catalog.get(&alpha).unwrap().issuance_enabled);
         assert!(catalog.get(&beta).unwrap().issuance_enabled);
+    }
+
+    #[test]
+    fn journal_recovery_truncates_an_unterminated_tail_frame() {
+        let dir = tempdir().unwrap();
+        let tenant = TenantId::new("alpha").unwrap();
+        let journal = DurableTenantJournal::open(dir.path(), tenant.clone()).unwrap();
+        let record = journal.prepare(1, "certificate.issued", b"serial=1").unwrap();
+        journal.commit_prepared(record.sequence, record.hash).unwrap();
+        let path = journal.path().to_path_buf();
+        let valid_len = std::fs::metadata(&path).unwrap().len();
+        drop(journal);
+
+        OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap()
+            .write_all(b"{\"frame\":\"prepared\"")
+            .unwrap();
+
+        let reopened = DurableTenantJournal::open(dir.path(), tenant).unwrap();
+        assert_eq!(reopened.committed_records().unwrap().len(), 1);
+        assert_eq!(std::fs::metadata(path).unwrap().len(), valid_len);
     }
 
     #[test]
