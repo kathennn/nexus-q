@@ -7,11 +7,11 @@
     save(value);
     if(value==='granted'&&typeof window.nqLoadGTM==='function')window.nqLoadGTM();
     if(value==='denied'&&window.gtag)window.gtag('consent','update',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});
-    if(banner)banner.hidden=true;
+    banner.hidden=true;
   }
   var banner=document.createElement('section');
-  banner.id='nq-consent-banner';banner.setAttribute('role','dialog');banner.setAttribute('aria-label','Analytics consent');banner.setAttribute('aria-describedby','nq-consent-copy');banner.hidden=true;
-  banner.innerHTML='<p id="nq-consent-copy"><strong>NEXUS-Q analytics.</strong> We use Google Analytics to understand aggregate website usage and improve the site. Analytics is disabled unless you choose to accept. You can change your choice at any time. <a href="/privacy">Privacy</a> · <a href="/cookies">Cookies</a></p><div class="nq-consent-actions"><button type="button" data-choice="accept">Accept analytics</button><button type="button" data-choice="reject">Reject analytics</button></div>';
+  banner.id='nq-consent-banner';banner.setAttribute('role','region');banner.setAttribute('aria-label','Privacy and analytics preferences');banner.hidden=true;
+  banner.innerHTML='<div class="nq-consent-card"><p class="nq-consent-eyebrow">NEXUS-Q · YOUR PRIVACY</p><h2>Help us improve NEXUS-Q</h2><p>We would like to use Google Analytics to understand which pages are useful and improve your experience. Analytics is optional and stays off unless you choose to allow it.</p><div class="nq-consent-actions"><button type="button" data-choice="accept">Accept analytics</button><button type="button" data-choice="reject">Reject analytics</button></div><p class="nq-consent-note">Your choice will not affect access to the site. You can change it at any time. Read our <a href="/privacy">Privacy Policy</a> and <a href="/cookies">Cookie Policy</a>.</p></div>';
   document.addEventListener('DOMContentLoaded',function(){
     document.body.appendChild(banner);
     var prefs=document.createElement('button');prefs.id='nq-consent-preferences';prefs.type='button';prefs.textContent='Privacy preferences';prefs.setAttribute('aria-label','Change analytics consent preferences');document.body.appendChild(prefs);
