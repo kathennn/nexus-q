@@ -201,7 +201,12 @@ impl AuditLog {
             .ok()
             .into_iter()
             .flatten()
-            .filter_map(|(_, path)| AuditSegment::open(path).ok())
+            .filter_map(|(_, path)| {
+                let mut segment = AuditSegment::open(path).ok()?;
+                segment.set_auth_key(&self.auth_key);
+                segment.verify().ok()?;
+                Some(segment)
+            })
             .any(|segment| {
                 segment
                     .events()
@@ -518,6 +523,31 @@ mod tests {
         // Reopen and check.
         let log2 = AuditLog::open(&audit, &TEST_KEY).unwrap();
         assert_eq!(log2.current_len(), 2);
+    }
+
+    #[test]
+    fn contains_event_hash_rejects_a_tampered_segment() {
+        let dir = TempDir::new().unwrap();
+        let key = [0x42; 32];
+        let mut log = AuditLog::open(dir.path(), &key).unwrap();
+        log.append(
+            ts(1),
+            AuditEventSpec::new(EventType::KeyCreated)
+                .with_actor("alice")
+                .with_subject("key-1"),
+        )
+        .unwrap();
+        let anchor = log.head_event_hash().unwrap().to_vec();
+        let path = log.current_path().to_path_buf();
+        let mut bytes = fs::read(&path).unwrap();
+        let actor_offset = bytes
+            .windows(b"alice".len())
+            .position(|window| window == b"alice")
+            .unwrap();
+        bytes[actor_offset..actor_offset + b"alice".len()].copy_from_slice(b"xxxxx");
+        fs::write(path, bytes).unwrap();
+
+        assert!(!log.contains_event_hash(&anchor));
     }
 
     #[test]
