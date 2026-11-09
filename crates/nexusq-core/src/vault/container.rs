@@ -39,6 +39,7 @@ use crate::identity::{
     Credential, CredentialError, Identity, IdentityId, IdentityMetadata, IdentityStatus,
 };
 use crate::policy::{PolicyContext, PolicyDecision, PolicyOperation, PolicySet};
+use crate::storage::atomic::{replace_file, sync_parent_dir};
 use crate::storage::{AuditEventSpec, AuditLog, AuditLogConfig, EventOutcome, EventType};
 
 /// Number of bytes of the length prefix before the CBOR header.
@@ -1993,7 +1994,7 @@ fn write_vault_file(
     drop(f);
 
     // Rename onto the target. If this fails, try to clean up the temp.
-    if let Err(e) = fs::rename(&tmp_path, path) {
+    if let Err(e) = replace_file(&tmp_path, path) {
         let _ = fs::remove_file(&tmp_path);
         return Err(VaultError::Io(e));
     }
@@ -2001,14 +2002,7 @@ fn write_vault_file(
 
     // fsync the directory so the rename is durable. Best-effort on
     // platforms that do not support directory fsync.
-    if let Some(parent) = path.parent()
-        && !parent.as_os_str().is_empty()
-        && let Ok(dir) = fs::File::open(parent)
-        && let Err(e) = dir.sync_all()
-        && e.kind() != std::io::ErrorKind::Unsupported
-    {
-        return Err(VaultError::Io(e));
-    }
+    sync_parent_dir(path).map_err(VaultError::Io)?;
 
     Ok(())
 }
