@@ -859,21 +859,6 @@ fn finalize_order(
     if verified.account_id.as_deref() != Some(order.account_id.as_str()) {
         return Err(AcmeError::unauthorized());
     }
-    if order.status != "ready"
-        || SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs()
-            >= order.expires
-    {
-        order.status = "invalid".to_owned();
-        state
-            .orders
-            .write()
-            .map_err(|_| AcmeError::server())?
-            .insert(id.to_owned(), order);
-        return Err(AcmeError::rejected());
-    }
     let csr_b64 = verified
         .payload
         .get("csr")
@@ -890,12 +875,27 @@ fn finalize_order(
     if names != expected {
         return Err(AcmeError::rejected());
     }
-    order.status = "processing".to_owned();
-    state
-        .orders
-        .write()
-        .map_err(|_| AcmeError::server())?
-        .insert(id.to_owned(), order.clone());
+    order = {
+        let mut orders = state.orders.write().map_err(|_| AcmeError::server())?;
+        let stored = orders.get_mut(id).ok_or_else(AcmeError::not_found)?;
+        if verified.account_id.as_deref() != Some(stored.account_id.as_str()) {
+            return Err(AcmeError::unauthorized());
+        }
+        if stored.status != "ready" {
+            return Err(AcmeError::rejected());
+        }
+        if SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+            >= stored.expires
+        {
+            stored.status = "invalid".to_owned();
+            return Err(AcmeError::rejected());
+        }
+        stored.status = "processing".to_owned();
+        stored.clone()
+    };
     let principal = Principal {
         id: order.account_id.clone(),
     };
