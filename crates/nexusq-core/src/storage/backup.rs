@@ -47,6 +47,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
+use subtle::ConstantTimeEq as _;
 
 use crate::crypto::aead::{self, AeadError, Algorithm as AeadAlgorithm};
 use crate::crypto::kdf::{self, KdfError};
@@ -305,7 +306,7 @@ fn build_header(kdf: KdfParams, salt: Vec<u8>, kek: &[u8]) -> Result<BackupHeade
 
 fn verify_backup_kek(header: &BackupHeader, kek: &[u8]) -> Result<(), BackupError> {
     let computed = compute_kek_verifier(kek)?;
-    if computed == header.kek_verifier {
+    if bool::from(computed.ct_eq(&header.kek_verifier)) {
         Ok(())
     } else {
         Err(BackupError::WrongPassphrase)

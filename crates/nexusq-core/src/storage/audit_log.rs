@@ -45,6 +45,7 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
+use subtle::ConstantTimeEq as _;
 
 use crate::vault::Timestamp;
 
@@ -353,9 +354,10 @@ impl AuditLog {
         stored_mac.copy_from_slice(&bytes[mac_start..]);
         let expected_mac =
             authenticate_anchor(&self.auth_key, &number.to_be_bytes(), &segment_hash);
+        let current_hash = self.current.segment_hash()?;
         if number != self.current_number
-            || segment_hash != self.current.segment_hash()?
-            || stored_mac != expected_mac
+            || !bool::from(segment_hash.ct_eq(&current_hash))
+            || !bool::from(stored_mac.ct_eq(&expected_mac))
         {
             return Err(DbError::AuditAnchorMismatch);
         }
