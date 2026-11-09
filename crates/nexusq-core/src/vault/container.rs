@@ -32,7 +32,7 @@ use super::record::{KeyRecord, RecordValidationError, WrappedKeyMaterial};
 use super::serde_helpers::{self, CborError};
 use super::state::{StateTransitionError, VaultState};
 use super::status::KeyStatus;
-use super::timestamp::Timestamp;
+use super::timestamp::{Timestamp, TimestampError};
 use super::wrapping::{self, WrappingError, wrap};
 use crate::crypto::sign::{self, SignError, Signature};
 use crate::identity::{
@@ -64,6 +64,10 @@ pub enum VaultError {
     /// The header was malformed or used an unsupported version.
     #[error("header error: {0}")]
     Header(#[from] HeaderError),
+
+    /// The system clock is before the UNIX epoch.
+    #[error("timestamp error: {0}")]
+    Timestamp(#[from] TimestampError),
 
     /// CBOR (de)serialization failed.
     #[error("cbor error: {0}")]
@@ -301,7 +305,7 @@ impl Vault {
         let header = VaultHeader::new(params, salt.to_vec(), kek.as_ref())?;
 
         // Build the initial (empty) body.
-        let now = Timestamp::now().unwrap_or(Timestamp::from_secs(0));
+        let now = Timestamp::now()?;
         let metadata = VaultMetadata {
             vault_id,
             created_at: now,
@@ -589,7 +593,7 @@ impl Session {
         };
 
         // Build the metadata record.
-        let now = Timestamp::now().unwrap_or(Timestamp::from_secs(0));
+        let now = Timestamp::now()?;
         let metadata = KeyMetadata {
             key_id: key_id.clone(),
             algorithm,
@@ -744,7 +748,7 @@ impl Session {
             return Err(VaultError::DuplicateIdentityId(identity_id));
         }
 
-        let now = Timestamp::now().unwrap_or(Timestamp::from_secs(0));
+        let now = Timestamp::now()?;
         let metadata = IdentityMetadata {
             created_at: now,
             created_by: "session".to_string(),
@@ -1042,7 +1046,7 @@ impl Session {
         self.require_writes_allowed()?;
         self.check_policy(PolicyOperation::IdentityRevoke, id.as_str(), None, Some(id))?;
 
-        let now = Timestamp::now().unwrap_or(Timestamp::from_secs(0));
+        let now = Timestamp::now()?;
 
         let identity = self
             .body
@@ -1138,7 +1142,7 @@ impl Session {
             credential_key_id,
         )?;
 
-        let now = Timestamp::now().unwrap_or(Timestamp::from_secs(0));
+        let now = Timestamp::now()?;
         let credential_bytes = match record.algorithm() {
             Algorithm::MlDsa65 => Credential::issue_ml_dsa65(
                 seed_bytes.as_ref(),
@@ -1227,7 +1231,7 @@ impl Session {
                 status: identity.metadata.status,
             });
         }
-        if credential.is_expired_at(Timestamp::now().unwrap_or(Timestamp::from_secs(0))) {
+        if credential.is_expired_at(Timestamp::now()?) {
             return Err(VaultError::Credential(CredentialError::Expired));
         }
         let revocation_id = credential.revocation_id()?;
@@ -1818,7 +1822,10 @@ impl Session {
                 .with_actor("session")
                 .with_subject(subject)
                 .with_outcome(outcome);
-            let now = Timestamp::now().unwrap_or(Timestamp::from_secs(0));
+            let now = Timestamp::now().map_err(|error| {
+                self.audit_failed.set(true);
+                VaultError::Timestamp(error)
+            })?;
             if let Err(err) = log.append(now, spec) {
                 self.audit_failed.set(true);
                 return Err(err.into());
@@ -1849,7 +1856,7 @@ impl Session {
             return Ok(());
         };
 
-        let now = Timestamp::now().unwrap_or(Timestamp::from_secs(0));
+        let now = Timestamp::now()?;
         let mut context = PolicyContext::new(operation, now);
         if let Some((key_id, status)) = key {
             context = context.with_key(key_id.clone(), status);
