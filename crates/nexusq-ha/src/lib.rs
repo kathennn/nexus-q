@@ -502,30 +502,73 @@ impl DurableTenantJournal {
     /// Restore a validated snapshot into a new, empty journal. Existing data is never overwritten.
     pub fn restore_snapshot(&self, snapshot: &JournalSnapshot) -> Result<(), HaError> {
         validate_snapshot(snapshot, &self.tenant)?;
+        let mut state = self.state.lock().map_err(|_| HaError::StateUnavailable)?;
+        if !state.committed.is_empty()
+            || !state.pending.is_empty()
+            || state.next_sequence != 1
+            || state.last_hash != [0; 32]
         {
-            let state = self.state.lock().map_err(|_| HaError::StateUnavailable)?;
-            if !state.committed.is_empty()
-                || !state.pending.is_empty()
-                || state.next_sequence != 1
-                || state.last_hash != [0; 32]
-            {
-                return Err(HaError::RestoreTargetNotEmpty);
-            }
+            return Err(HaError::RestoreTargetNotEmpty);
         }
+
+        // Keep the state lock for the entire restore. Releasing it between frames
+        // would allow a concurrent writer to append to a journal that was checked
+        // as empty, interleaving live mutations with snapshot records.
         for record in &snapshot.records {
-            let next = self
-                .state
-                .lock()
-                .map_err(|_| HaError::StateUnavailable)?
-                .next_sequence;
-            if record.sequence > next {
-                self.advance_sequence_to(record.sequence)?;
+            if record.sequence > state.next_sequence {
+                append_frame(
+                    &mut state.file,
+                    &JournalFrame::SequenceAdvance {
+                        next_sequence: record.sequence,
+                    },
+                )?;
+                state.next_sequence = record.sequence;
             }
-            self.accept_replica_prepare(record)?;
-            self.commit_prepared(record.sequence, record.hash)?;
+            if record.sequence != state.next_sequence || record.previous_hash != state.last_hash {
+                return Err(HaError::JournalCorrupt);
+            }
+            append_frame(
+                &mut state.file,
+                &JournalFrame::Prepared {
+                    record: record.clone(),
+                },
+            )?;
+            state.pending.insert(record.sequence, record.clone());
+            state.highest_term = state.highest_term.max(record.term);
+            state.next_sequence = record
+                .sequence
+                .checked_add(1)
+                .ok_or(HaError::SequenceExhausted)?;
+
+            append_frame(
+                &mut state.file,
+                &JournalFrame::Committed {
+                    sequence: record.sequence,
+                    hash: record.hash,
+                },
+            )?;
+            state.pending.remove(&record.sequence);
+            state.last_hash = record.hash;
+            state.committed.push(record.clone());
         }
-        self.advance_sequence_to(snapshot.next_sequence)?;
-        self.advance_fencing_to(snapshot.highest_term)?;
+        if snapshot.next_sequence > state.next_sequence {
+            append_frame(
+                &mut state.file,
+                &JournalFrame::SequenceAdvance {
+                    next_sequence: snapshot.next_sequence,
+                },
+            )?;
+            state.next_sequence = snapshot.next_sequence;
+        }
+        if snapshot.highest_term > state.highest_term {
+            append_frame(
+                &mut state.file,
+                &JournalFrame::FencingAdvance {
+                    highest_term: snapshot.highest_term,
+                },
+            )?;
+            state.highest_term = snapshot.highest_term;
+        }
         Ok(())
     }
 
