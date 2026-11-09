@@ -73,7 +73,7 @@ pub fn encrypt_file_to_public_key(
     metadata: Vec<u8>,
 ) -> Result<PathBuf, EnvelopeError> {
     let input = input.as_ref();
-    let plaintext = fs::read(input)?;
+    let plaintext = Zeroizing::new(fs::read(input)?);
     let envelope_bytes =
         envelope::build_envelope_to_public_key(recipient_public_key, &plaintext, metadata)?;
     let output = encrypted_path_for(input);
@@ -116,7 +116,7 @@ pub fn encrypt_file_with_key(
     metadata: Vec<u8>,
 ) -> Result<PathBuf, EnvelopeError> {
     let input = input.as_ref();
-    let plaintext = fs::read(input)?;
+    let plaintext = Zeroizing::new(fs::read(input)?);
     let envelope_bytes = envelope::build_envelope(kek, key_record, &plaintext, metadata)?;
     let output = encrypted_path_for(input);
     write_new_atomic(&output, &envelope_bytes)?;
