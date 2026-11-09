@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>NEXUS-Q — Post-quantum cryptographic security engine</title>
-<meta name="description" content="NEXUS-Q is an open source Rust engine that protects data, keys and identities with post-quantum cryptography (ML-KEM, ML-DSA), a tamper-evident audit log and an honest account of what it does and does not prove.">
-<meta property="og:title" content="NEXUS-Q — Post-quantum cryptographic security engine">
-<meta property="og:description" content="Open source Rust engine for protecting data, keys and identities. ML-KEM-768 + X25519, ML-DSA-65, vaults, audit log, SDKs. No independent audit implied.">
+<title>NEXUS-Q | Open-Source PQC SDK & Rust Engine</title>
+<meta name="description" content="NEXUS-Q is a free, open-source Rust post-quantum cryptography engine with ML-KEM, ML-DSA and SDK integrations for Python, TypeScript, Java, .NET and more.">
+<meta property="og:title" content="NEXUS-Q | Open-Source PQC SDK & Rust Engine">
+<meta property="og:description" content="Free, open-source Rust post-quantum cryptography engine with ML-KEM, ML-DSA and SDKs for Python, TypeScript, Java, .NET and more.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="NEXUS-Q">
 <meta property="og:url" content="https://nexus-q.link/">
@@ -15,13 +15,13 @@
 <meta property="og:image:height" content="640">
 <meta property="og:image:alt" content="NEXUS-Q: post-quantum cryptographic security engine">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="NEXUS-Q — Post-quantum cryptographic security engine">
-<meta name="twitter:description" content="Open source Rust engine for protecting data, keys and identities with ML-KEM and ML-DSA. No independent audit implied.">
+<meta name="twitter:title" content="NEXUS-Q | Open-Source PQC SDK & Rust Engine">
+<meta name="twitter:description" content="Free, open-source Rust PQC engine with ML-KEM, ML-DSA and developer SDK integrations. Review platform requirements and security limitations.">
 <meta name="twitter:image" content="https://nexus-q.link/og.jpg">
 <link rel="canonical" href="https://nexus-q.link/">
 <meta name="google-site-verification" content="uxWm8El2GOsP6QysZ7LhFuo-IBxQUeFpS2Lgpgq3T5I" />
-<meta name="keywords" content="post-quantum cryptography, ML-KEM, ML-DSA, Kyber, Dilithium, FIPS 203, FIPS 204, Rust, encryption, key management, vault">
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"https://nexus-q.link/#website","url":"https://nexus-q.link/","name":"NEXUS-Q","alternateName":["NEXUS-Q PQC","NEXUS-Q post-quantum"],"description":"Open source Rust engine for protecting data, keys and identities with post-quantum cryptography.","inLanguage":"en","publisher":{"@id":"https://nexus-q.link/#org"}},{"@type":"Organization","@id":"https://nexus-q.link/#org","name":"NEXUS-Q","url":"https://nexus-q.link/","logo":{"@type":"ImageObject","url":"https://nexus-q.link/nexus-q-logo.png","width":192,"height":192},"founder":{"@type":"Person","name":"lecodev-26","url":"https://github.com/lecodev-26"},"sameAs":["https://github.com/lecodev-26/nexus-q"]},{"@type":"SoftwareSourceCode","name":"NEXUS-Q","description":"Post-quantum cryptographic security engine written in Rust for protecting data, keys and identities.","url":"https://nexus-q.link/","codeRepository":"https://github.com/lecodev-26/nexus-q","programmingLanguage":"Rust","license":["https://opensource.org/license/mit","https://www.apache.org/licenses/LICENSE-2.0"],"author":{"@type":"Person","name":"lecodev-26","url":"https://github.com/lecodev-26"},"@id":"https://nexus-q.link/#software","image":"https://nexus-q.link/og.jpg","publisher":{"@id":"https://nexus-q.link/#org"}}]}</script>
+<meta name="keywords" content="post-quantum cryptography, PQC SDK, open source PQC, free cryptography library, Rust PQC, Python PQC SDK, TypeScript cryptography, ML-KEM, ML-DSA, Kyber, Dilithium, FIPS 203, FIPS 204, quantum-resistant encryption, post-quantum API, key management, vault">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"https://nexus-q.link/#website","url":"https://nexus-q.link/","name":"NEXUS-Q","alternateName":["NEXUS-Q PQC","NEXUS-Q post-quantum","NEXUS-Q PQC SDK"],"description":"Free and open-source Rust post-quantum cryptography engine with ML-KEM, ML-DSA and SDK integrations for developers.","inLanguage":"en","publisher":{"@id":"https://nexus-q.link/#org"}},{"@type":"Organization","@id":"https://nexus-q.link/#org","name":"NEXUS-Q","url":"https://nexus-q.link/","logo":{"@type":"ImageObject","url":"https://nexus-q.link/nexus-q-logo.png","width":192,"height":192},"founder":{"@type":"Person","name":"lecodev-26","url":"https://github.com/lecodev-26"},"sameAs":["https://github.com/lecodev-26/nexus-q"]},{"@type":"SoftwareSourceCode","name":"NEXUS-Q","description":"Post-quantum cryptographic security engine written in Rust for protecting data, keys and identities.","url":"https://nexus-q.link/","codeRepository":"https://github.com/lecodev-26/nexus-q","programmingLanguage":"Rust","license":["https://opensource.org/license/mit","https://www.apache.org/licenses/LICENSE-2.0"],"author":{"@type":"Person","name":"lecodev-26","url":"https://github.com/lecodev-26"},"@id":"https://nexus-q.link/#software","image":"https://nexus-q.link/og.jpg","publisher":{"@id":"https://nexus-q.link/#org"}}]}</script>
 <meta name="application-name" content="NEXUS-Q">
 <meta name="theme-color" content="#06080b">
 <link rel="icon" href="https://nexus-q.link/favicon.ico" sizes="48x48">
@@ -565,6 +565,7 @@ cargo build --workspace --release</pre></div>
 </div>
 </div></section>
 
+<section id="pqc-search-guides" class="section"><div class="wrap"><div class="eyebrow">/ developers / learn and integrate</div><h2>Build with <em>post-quantum cryptography.</em></h2><p>NEXUS-Q is an independent open-source Rust cryptographic engine with ML-KEM, ML-DSA and language integrations. It is not affiliated with Google and is unrelated to the discontinued Google Nexus Q media player.</p><div class="grid"><article class="card"><h3>Learn about PQC</h3><p>Understand post-quantum cryptography, ML-KEM, ML-DSA and the NIST standards.</p><a class="lk" href="/post-quantum-cryptography">Post-quantum cryptography guide ↗</a></article><article class="card"><h3>Choose your SDK</h3><p>Explore Rust, Python, TypeScript, Java, Kotlin, .NET and other language bindings with their actual requirements.</p><a class="lk" href="/pqc-sdk">PQC SDK catalogue ↗</a></article><article class="card"><h3>Install NEXUS-Q</h3><p>Follow the Rust or Python quick start and check native runtime requirements.</p><a class="lk" href="/install-pqc">Installation guide ↗</a></article><article class="card"><h3>Build with Rust or Python</h3><p>Read language-specific setup notes and package information.</p><a class="lk" href="/rust-post-quantum-cryptography">Rust guide ↗</a> · <a class="lk" href="/python-post-quantum-cryptography">Python guide ↗</a></article></div></div></section>
 <footer><div class="wrap"><div>NEXUS-Q · MIT OR Apache-2.0 · an engineering project by <a class="lk" href="https://github.com/lecodev-26" target="_blank" rel="noopener">lecodev-26</a></div><div class="footer-links"><a href="https://github.com/lecodev-26/nexus-q" target="_blank" rel="noopener">Repository</a><a href="https://github.com/lecodev-26/nexus-q/issues" target="_blank" rel="noopener">Issues</a><a href="https://github.com/lecodev-26/nexus-q/blob/v4.1.2/SECURITY.md" target="_blank" rel="noopener">Security</a><a href="/legal">Legal notice</a><a href="/privacy">Privacy</a><a href="/cookies">Cookies</a><a href="/accessibility">Accessibility</a></div></div></footer>
 
 <script>
