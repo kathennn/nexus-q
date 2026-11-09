@@ -1,7 +1,7 @@
 //! ACME RFC 8555 directory, account, order, authorization, challenge, finalize, and certificate routes.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{
         Arc, Mutex, RwLock,
         atomic::{AtomicU64, Ordering},
@@ -505,6 +505,52 @@ async fn handle_post(
     }
 }
 
+fn prune_expired_resources(state: &AcmeState) -> Result<(), AcmeError> {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let expired_orders: Vec<Order> = state
+        .orders
+        .read()
+        .map_err(|_| AcmeError::server())?
+        .values()
+        .filter(|order| order.expires <= now)
+        .cloned()
+        .collect();
+    if expired_orders.is_empty() {
+        return Ok(());
+    }
+    let expired_order_ids: HashSet<String> =
+        expired_orders.iter().map(|order| order.id.clone()).collect();
+    let expired_authz_ids: HashSet<String> = expired_orders
+        .iter()
+        .flat_map(|order| order.authorization_ids.iter().cloned())
+        .collect();
+    let expired_challenge_ids: Vec<String> = state
+        .authorizations
+        .read()
+        .map_err(|_| AcmeError::server())?
+        .values()
+        .filter(|authz| expired_order_ids.contains(&authz.order_id))
+        .flat_map(|authz| authz.challenge_ids.iter().cloned())
+        .collect();
+
+    let mut challenges = state.challenges.write().map_err(|_| AcmeError::server())?;
+    let mut authorizations = state.authorizations.write().map_err(|_| AcmeError::server())?;
+    let mut orders = state.orders.write().map_err(|_| AcmeError::server())?;
+    for id in expired_challenge_ids {
+        challenges.remove(&id);
+    }
+    for id in expired_authz_ids {
+        authorizations.remove(&id);
+    }
+    for id in expired_order_ids {
+        orders.remove(&id);
+    }
+    Ok(())
+}
+
 fn create_order(state: &AcmeState, verified: VerifiedRequest) -> Result<Response, AcmeError> {
     let identifiers = verified
         .payload
@@ -549,6 +595,7 @@ fn create_order(state: &AcmeState, verified: VerifiedRequest) -> Result<Response
             EnrollmentError::RateLimited => AcmeError::rate_limited(),
             _ => AcmeError::server(),
         })?;
+    prune_expired_resources(state)?;
     if state.orders.read().map_err(|_| AcmeError::server())?.len() >= MAX_ACME_RESOURCES {
         return Err(AcmeError::rate_limited());
     }
