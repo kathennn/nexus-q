@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Add `crypto::kem::hybrid::try_generate()` so X-Wing key generation reports OS CSPRNG failures as `KemError::Randomness` instead of forcing callers to handle a panic.
+- Keep the infallible `hybrid::generate()` as a documented compatibility wrapper, and migrate vault key-material creation to the fallible API so RNG failures propagate through `VaultError`.
+- Add regression coverage for injected randomness failures and successful hybrid key generation. Cryptographic parameters, key serialization, and the X-Wing construction are unchanged.
+
 ## v4.1.2 — Audit-Ready Release
 
 - Align SDK manifests, runtime pins and package installation guidance with v4.1.2.
