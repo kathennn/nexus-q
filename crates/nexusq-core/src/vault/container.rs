@@ -287,34 +287,44 @@ impl Vault {
             .open(&path)?;
         drop(reservation);
 
-        let rng = OsRandomSource::new();
+        // If initialization fails before the atomic vault-file rename, remove
+        // the empty reservation so callers can retry creation at this path.
+        let result = (|| {
+            let rng = OsRandomSource::new();
 
-        // Generate a fresh salt and vault id.
-        let mut salt = [0u8; SALT_LEN];
-        rng.fill_bytes(&mut salt)?;
+            // Generate a fresh salt and vault id.
+            let mut salt = [0u8; SALT_LEN];
+            rng.fill_bytes(&mut salt)?;
 
-        let vault_id = generate_vault_id(&rng)?;
+            let vault_id = generate_vault_id(&rng)?;
 
-        // Derive the KEK and build the header.
-        let params = KdfParams::v1_default();
-        let kek = derive_kek(password, &salt, &params)?;
-        let header = VaultHeader::new(params, salt.to_vec(), kek.as_ref())?;
+            // Derive the KEK and build the header.
+            let params = KdfParams::v1_default();
+            let kek = derive_kek(password, &salt, &params)?;
+            let header = VaultHeader::new(params, salt.to_vec(), kek.as_ref())?;
 
-        // Build the initial (empty) body.
-        let now = Timestamp::now().unwrap_or(Timestamp::from_secs(0));
-        let metadata = VaultMetadata {
-            vault_id,
-            created_at: now,
-            created_by: DEFAULT_LABEL.to_string(),
-            label,
-            schema_version: CURRENT_SCHEMA_VERSION,
-        };
-        let body = VaultBody::new(metadata);
+            // Build the initial (empty) body.
+            let now = Timestamp::now().unwrap_or(Timestamp::from_secs(0));
+            let metadata = VaultMetadata {
+                vault_id,
+                created_at: now,
+                created_by: DEFAULT_LABEL.to_string(),
+                label,
+                schema_version: CURRENT_SCHEMA_VERSION,
+            };
+            let body = VaultBody::new(metadata);
 
-        let vault = Self { path, header };
-        vault.write_body(&body, &kek)?;
+            let vault = Self { path: path.clone(), header };
+            vault.write_body(&body, &kek)?;
+            Ok(vault)
+        })();
 
-        Ok(vault)
+        if result.is_err()
+            && fs::metadata(&path).is_ok_and(|metadata| metadata.len() == 0)
+        {
+            let _ = fs::remove_file(&path);
+        }
+        result
     }
 
     /// Opens an existing vault file and parses its header.
