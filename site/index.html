@@ -244,12 +244,20 @@ section{padding:clamp(48px,6vw,76px) 0}.eyebrow{font:700 12px "Instrument Sans",
 @media(max-width:380px){.links.open{padding:10px;gap:6px}.links a,.links .mo{padding:9px;font-size:13px}}
 
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}#cv{display:none}}
+
+#github-activity .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:24px 0}
+#github-activity .metric{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+#github-activity .metric strong{display:block;font:38px Anton,Impact,sans-serif;line-height:1.15;color:var(--acc);overflow-wrap:anywhere}
+#github-activity .metric span,#github-activity .status{font-size:12px;color:var(--mut)}
+#github-activity .status{margin:10px 0}
+#github-activity h2 em{font-style:normal;color:var(--acc)}
+@media(max-width:700px){#github-activity .metrics{grid-template-columns:1fr 1fr}#github-activity .metric{padding:14px}#github-activity .metric strong{font-size:30px}}
 </style>
 </head>
 <body>
 <nav><div class="wrap">
 <a class="logo notranslate" translate="no" href="#top"><img src="/nexus-q-logo.png" alt="" width="30" height="30">NEXUS-Q</a>
-<div class="links" id="menu"><a href="#overview">Overview</a><a href="#release">v4.1.2 release</a><a href="/news">News</a><a href="#how">How it works</a><a href="#crypto">Crypto</a><a href="#packages">Packages</a><a href="#benchmarks">Benchmarks</a><a href="#versions">Versions</a><a href="#quickstart">Quick start</a><a href="#docs">Documentation</a><a href="#contribute">Contribute</a><a href="#faq">FAQ</a><a class="mo" href="https://github.com/lecodev-26/nexus-q" target="_blank" rel="noopener">GitHub</a></div>
+<div class="links" id="menu"><a href="#overview">Overview</a><a href="#release">v4.1.2 release</a><a href="/news">News</a><a href="#how">How it works</a><a href="#crypto">Crypto</a><a href="#packages">Packages</a><a href="#benchmarks">Benchmarks</a><a href="#versions">Versions</a><a href="#quickstart">Quick start</a><a href="#docs">Documentation</a><a href="#contribute">Contribute</a><a href="/contributors">Contributors</a><a href="#faq">FAQ</a><a class="mo" href="https://github.com/lecodev-26/nexus-q" target="_blank" rel="noopener">GitHub</a></div>
 <div class="navr"><div class="theme-picker" role="group" aria-label="Choose color theme"><button class="theme-choice" id="theme-light" type="button" aria-pressed="false" title="Use light mode">☀ Claro</button><button class="theme-choice" id="theme-dark" type="button" aria-pressed="false" title="Use dark mode">☾ Oscuro</button></div><a class="btn p" href="https://github.com/lecodev-26/nexus-q" target="_blank" rel="noopener">GitHub</a><button class="mb" id="mb" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button></div>
 </div></nav>
 
@@ -260,7 +268,7 @@ section{padding:clamp(48px,6vw,76px) 0}.eyebrow{font:700 12px "Instrument Sans",
 <h1 class="d">Post-quantum security, <em>built in the open.</em></h1>
 <p class="lead">NEXUS-Q is a Rust cryptographic engine for protecting <strong>data, keys and identities</strong> with ML-KEM, ML-DSA, a tamper-evident audit log and a growing PKI/SDK ecosystem. Version 4.1.2 adds certificate lifecycle, signing, timestamping, runtime and high-availability capabilities—with security limitations stated explicitly.</p>
 <p class="aud"><strong>Built for</strong> developers and teams who embed cryptography in applications and servers that must protect secrets for the long term.</p>
-<p class="by">Maintained by <a class="lk" href="https://github.com/lecodev-26" target="_blank" rel="noopener">lecodev-26</a> · <a class="lk" href="https://github.com/lecodev-26/nexus-q/graphs/contributors" target="_blank" rel="noopener">contributors</a></p>
+<p class="by">Maintained by <a class="lk" href="https://github.com/lecodev-26" target="_blank" rel="noopener">lecodev-26</a> · <a class="lk" href="/contributors">contributors</a></p>
 <div class="cta"><a class="btn p" href="#quickstart">Quick start</a><a class="btn" href="https://github.com/lecodev-26/nexus-q" target="_blank" rel="noopener">View repository</a><a class="btn" href="https://github.com/lecodev-26/nexus-q/releases/latest" target="_blank" rel="noopener">Latest release</a><a class="btn" href="#contribute">Contribute</a></div>
 <div class="stats"><div><b>4.1.2</b><span>GitHub release · release designation</span></div><div><b>241</b><span>normalized Arena measurements in the v4.1.0 benchmark record</span></div>
 <div><b>Success</b><span>tag-gated v4.1.2 release workflow on exact commit</span></div><div><b>Opt-in</b><span>native backend is experimental; normal production paths default to RustCrypto</span></div></div>
@@ -493,6 +501,8 @@ cargo build --workspace --release</pre></div>
 <p class="sec-lead rv" style="margin-top:14px">Prefer <code>--password-file</code> over typing a password on the command line, and never commit that file. The full command list is in the <a class="lk" href="https://github.com/lecodev-26/nexus-q/blob/v4.1.2/docs/user/CLI.md" target="_blank" rel="noopener">CLI guide</a>. Server setup is in <a class="lk" href="https://github.com/lecodev-26/nexus-q/blob/v4.1.2/docs/SERVER.md" target="_blank" rel="noopener">docs/SERVER.md</a>.</p>
 </div></section>
 
+<section id="github-activity"><div class="wrap"><div class="eyebrow">/ open source / live repository</div><h2 class="d">Project activity, <em>from GitHub.</em></h2><p class="sec-lead">Live public repository metadata, loaded directly from GitHub. Counts may be temporarily unavailable if GitHub applies API rate limits.</p><div class="metrics"><div class="metric"><strong data-repo="stars">—</strong><span>Stars</span></div><div class="metric"><strong data-repo="forks">—</strong><span>Forks</span></div><div class="metric"><strong data-repo="issues">—</strong><span>Open issues &amp; PRs</span></div><div class="metric"><strong data-repo="updated">—</strong><span>Last push</span></div><div class="metric"><strong data-repo="release">—</strong><span>Latest release</span></div><div class="metric"><strong data-repo="contributors">—</strong><span>Contributors</span></div></div><p class="status" data-repo-status aria-live="polite">Loading public GitHub data…</p><div class="cta"><a class="btn p" href="https://github.com/lecodev-26/nexus-q" target="_blank" rel="noopener">View repository ↗</a><a class="btn" href="/contributors">Meet contributors</a><a class="btn" href="https://github.com/lecodev-26/nexus-q/releases" target="_blank" rel="noopener">All releases ↗</a></div></div></section>
+
 <section id="contribute"><div class="wrap">
 <div class="eyebrow rv">/ contribute</div>
 <h2 class="d rv">How you can help</h2>
@@ -567,6 +577,18 @@ cargo build --workspace --release</pre></div>
 
 <section id="pqc-search-guides" class="section"><div class="wrap"><div class="eyebrow">/ developers / learn and integrate</div><h2>Build with <em>post-quantum cryptography.</em></h2><p>NEXUS-Q is an independent open-source Rust cryptographic engine with ML-KEM, ML-DSA and language integrations. It is not affiliated with Google and is unrelated to the discontinued Google Nexus Q media player.</p><div class="grid"><article class="card"><h3>Learn about PQC</h3><p>Understand post-quantum cryptography, ML-KEM, ML-DSA and the NIST standards.</p><a class="lk" href="/post-quantum-cryptography">Post-quantum cryptography guide ↗</a></article><article class="card"><h3>Choose your SDK</h3><p>Explore Rust, Python, TypeScript, Java, Kotlin, .NET and other language bindings with their actual requirements.</p><a class="lk" href="/pqc-sdk">PQC SDK catalogue ↗</a></article><article class="card"><h3>Install NEXUS-Q</h3><p>Follow the Rust or Python quick start and check native runtime requirements.</p><a class="lk" href="/install-pqc">Installation guide ↗</a></article><article class="card"><h3>Build with Rust or Python</h3><p>Read language-specific setup notes and package information.</p><a class="lk" href="/rust-post-quantum-cryptography">Rust guide ↗</a> · <a class="lk" href="/python-post-quantum-cryptography">Python guide ↗</a></article></div></div></section>
 <footer><div class="wrap"><div>NEXUS-Q · MIT OR Apache-2.0 · an engineering project by <a class="lk" href="https://github.com/lecodev-26" target="_blank" rel="noopener">lecodev-26</a></div><div class="footer-links"><a href="https://github.com/lecodev-26/nexus-q" target="_blank" rel="noopener">Repository</a><a href="https://github.com/lecodev-26/nexus-q/issues" target="_blank" rel="noopener">Issues</a><a href="https://github.com/lecodev-26/nexus-q/blob/v4.1.2/SECURITY.md" target="_blank" rel="noopener">Security</a><a href="/legal">Legal notice</a><a href="/privacy">Privacy</a><a href="/cookies">Cookies</a><a href="/accessibility">Accessibility</a></div></div></footer>
+<script>
+(function(){
+ const repo="lecodev-26/nexus-q",status=document.querySelector("[data-repo-status]");
+ const fmt=n=>new Intl.NumberFormat("en-US").format(n);
+ const dateText=s=>{const d=new Date(s);return Number.isNaN(d.getTime())?s:d.toLocaleDateString("en-US",{year:"numeric",month:"short",day:"numeric"});};
+ const set=(key,value)=>document.querySelectorAll('[data-repo="'+key+'"]').forEach(el=>el.textContent=value);
+ async function get(url){const r=await fetch(url,{headers:{Accept:"application/vnd.github+json"}});if(!r.ok)throw new Error("GitHub API "+r.status);return r.json();}
+ async function load(){const jobs=await Promise.allSettled([get("https://api.github.com/repos/"+repo),get("https://api.github.com/repos/"+repo+"/releases/latest"),get("https://api.github.com/repos/"+repo+"/contributors?per_page=100")]);const [project,release,contributors]=jobs;if(project.status==="fulfilled"){const d=project.value;set("stars",fmt(d.stargazers_count));set("forks",fmt(d.forks_count));set("issues",fmt(d.open_issues_count));set("updated",dateText(d.pushed_at));}if(release.status==="fulfilled")set("release",release.value.tag_name||"—");if(contributors.status==="fulfilled")set("contributors",fmt(contributors.value.length));const ok=jobs.some(x=>x.status==="fulfilled");if(status)status.textContent=ok?"Live data loaded from the public GitHub API.":"GitHub data is temporarily unavailable. Open the repository on GitHub.";}
+ load().catch(()=>{if(status)status.textContent="GitHub data is temporarily unavailable. Open the repository on GitHub.";});
+})();
+</script>
+
 
 <script>
 (function(){
