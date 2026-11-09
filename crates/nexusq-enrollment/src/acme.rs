@@ -733,7 +733,7 @@ async fn challenge_resource(
     if verified.account_id.as_deref() != Some(challenge.account_id.as_str()) {
         return Err(AcmeError::unauthorized());
     }
-    if challenge.status == "valid" {
+    if challenge.status != "pending" {
         return Ok(json_response(
             StatusCode::OK,
             challenge_json(state, &challenge),
@@ -779,16 +779,13 @@ async fn challenge_resource(
             .write()
             .map_err(|_| AcmeError::server())?;
         if let Some(authz) = authorizations.get_mut(&authz_id) {
-            if !valid {
-                authz.status = "invalid".to_owned();
-            } else if authz
+            let challenge_statuses: Vec<&str> = authz
                 .challenge_ids
                 .iter()
                 .filter_map(|cid| challenges.get(cid))
-                .any(|item| item.status == "valid")
-            {
-                authz.status = "valid".to_owned();
-            }
+                .map(|item| item.status.as_str())
+                .collect();
+            authz.status = next_authorization_status(&authz.status, &challenge_statuses);
         }
     }
     let authz_order_id = state
@@ -837,6 +834,20 @@ async fn challenge_resource(
         StatusCode::OK,
         challenge_json(state, &updated),
     ))
+}
+
+fn next_authorization_status(current: &str, challenge_statuses: &[&str]) -> String {
+    match current {
+        "valid" => "valid".to_owned(),
+        "invalid" => "invalid".to_owned(),
+        _ if challenge_statuses.contains(&"valid") => "valid".to_owned(),
+        _ if !challenge_statuses.is_empty()
+            && challenge_statuses.iter().all(|status| *status == "invalid") =>
+        {
+            "invalid".to_owned()
+        }
+        _ => "pending".to_owned(),
+    }
 }
 
 fn challenge_json(state: &AcmeState, challenge: &Challenge) -> Value {
@@ -1092,6 +1103,26 @@ mod tests {
             .to_str()
             .unwrap()
             .to_owned()
+    }
+
+    #[test]
+    fn authorization_waits_for_all_challenges_to_fail_and_never_downgrades() {
+        assert_eq!(
+            next_authorization_status("pending", &["invalid", "pending"]),
+            "pending"
+        );
+        assert_eq!(
+            next_authorization_status("pending", &["valid", "invalid"]),
+            "valid"
+        );
+        assert_eq!(
+            next_authorization_status("valid", &["invalid", "invalid"]),
+            "valid"
+        );
+        assert_eq!(
+            next_authorization_status("pending", &["invalid", "invalid"]),
+            "invalid"
+        );
     }
 
     #[tokio::test]
