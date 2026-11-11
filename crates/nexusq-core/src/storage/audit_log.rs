@@ -574,12 +574,8 @@ mod tests {
     #[test]
     fn contains_event_hash_rejects_a_valid_segment_with_a_broken_link() {
         let (_tmp, audit) = init_dir();
-        let mut log = AuditLog::open_with(
-            &audit,
-            AuditLogConfig { max_events: 1 },
-            &TEST_KEY,
-        )
-        .unwrap();
+        let mut log =
+            AuditLog::open_with(&audit, AuditLogConfig { max_events: 1 }, &TEST_KEY).unwrap();
         log.append(ts(1), spec(EventType::VaultCreated)).unwrap();
         let original_anchor = log.head_event_hash().unwrap().to_vec();
         log.append(ts(2), spec(EventType::VaultUnlocked)).unwrap();
