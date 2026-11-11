@@ -197,22 +197,35 @@ impl AuditLog {
         if anchor.len() != HASH_LEN {
             return false;
         }
-        find_segments(&self.dir)
-            .ok()
-            .into_iter()
-            .flatten()
-            .filter_map(|(_, path)| {
-                let mut segment = AuditSegment::open(path).ok()?;
-                segment.set_auth_key(&self.auth_key);
-                segment.verify().ok()?;
-                Some(segment)
-            })
-            .any(|segment| {
-                segment
-                    .events()
-                    .iter()
-                    .any(|event| event.hash.as_slice() == anchor)
-            })
+        let Ok(segments) = find_segments(&self.dir) else {
+            return false;
+        };
+        let mut expected_prev = super::audit_event::GENESIS_HASH;
+        let mut found = false;
+
+        // Re-read and validate the complete chain in one pass. Individual
+        // segment authentication is insufficient: a valid segment replayed
+        // into a different position must not satisfy an anchor lookup.
+        for (_, path) in segments {
+            let Ok(mut segment) = AuditSegment::open(&path) else {
+                return false;
+            };
+            segment.set_auth_key(&self.auth_key);
+            if segment.verify().is_err() || *segment.prev_segment() != expected_prev {
+                return false;
+            }
+
+            found |= segment
+                .events()
+                .iter()
+                .any(|event| event.hash.as_slice() == anchor);
+            let Ok(segment_hash) = segment.segment_hash() else {
+                return false;
+            };
+            expected_prev = segment_hash;
+        }
+
+        found
     }
 
     /// Returns the number of segments currently on disk.
@@ -548,6 +561,33 @@ mod tests {
         fs::write(path, bytes).unwrap();
 
         assert!(!log.contains_event_hash(&anchor));
+    }
+
+    #[test]
+    fn contains_event_hash_rejects_a_valid_segment_with_a_broken_link() {
+        let (_tmp, audit) = init_dir();
+        let mut log = AuditLog::open_with(
+            &audit,
+            AuditLogConfig { max_events: 1 },
+            &TEST_KEY,
+        )
+        .unwrap();
+        log.append(ts(1), spec(EventType::VaultCreated)).unwrap();
+        let original_anchor = log.head_event_hash().unwrap().to_vec();
+        log.append(ts(2), spec(EventType::VaultUnlocked)).unwrap();
+
+        // Replace segment 1 with a separately authenticated segment. Its
+        // own contents and MAC are valid, but segment 2 still links to the
+        // original segment 1 hash, so the complete chain is invalid.
+        let mut replacement = AuditSegment::new_with_key(None, &TEST_KEY).unwrap();
+        replacement
+            .append(ts(3), spec(EventType::KeyCreated))
+            .unwrap();
+        let replacement_anchor = replacement.events()[0].hash.clone();
+        replacement.save(&audit.join("audit-00001.nqa")).unwrap();
+
+        assert_ne!(replacement_anchor, original_anchor);
+        assert!(!log.contains_event_hash(&replacement_anchor));
     }
 
     #[test]
