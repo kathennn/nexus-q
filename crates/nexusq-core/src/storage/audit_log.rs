@@ -588,7 +588,7 @@ mod tests {
             .append(ts(3), spec(EventType::KeyCreated))
             .unwrap();
         let replacement_anchor = replacement.events()[0].hash.clone();
-        replacement.save(&audit.join("audit-00001.nqa")).unwrap();
+        replacement.save(audit.join("audit-00001.nqa")).unwrap();
 
         assert_ne!(replacement_anchor, original_anchor);
         assert!(!log.contains_event_hash(&replacement_anchor));
