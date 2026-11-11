@@ -201,12 +201,14 @@ impl AuditLog {
             return false;
         };
         let mut expected_prev = super::audit_event::GENESIS_HASH;
+        let mut last_number = None;
         let mut found = false;
 
         // Re-read and validate the complete chain in one pass. Individual
         // segment authentication is insufficient: a valid segment replayed
         // into a different position must not satisfy an anchor lookup.
-        for (_, path) in segments {
+        for (number, path) in segments {
+            last_number = Some(number);
             let Ok(mut segment) = AuditSegment::open(&path) else {
                 return false;
             };
@@ -225,7 +227,13 @@ impl AuditLog {
             expected_prev = segment_hash;
         }
 
-        found
+        let Ok(current_hash) = self.current.segment_hash() else {
+            return false;
+        };
+
+        // The chain must still terminate at the exact authenticated tail
+        // held by this AuditLog instance, not merely at any valid old chain.
+        found && last_number == Some(self.current_number) && expected_prev == current_hash
     }
 
     /// Returns the number of segments currently on disk.
@@ -588,6 +596,33 @@ mod tests {
 
         assert_ne!(replacement_anchor, original_anchor);
         assert!(!log.contains_event_hash(&replacement_anchor));
+    }
+
+    #[test]
+    fn contains_event_hash_rejects_a_replayed_valid_chain() {
+        let (_tmp, audit) = init_dir();
+        let config = AuditLogConfig { max_events: 1 };
+        let mut log = AuditLog::open_with(&audit, config, &TEST_KEY).unwrap();
+        log.append(ts(1), spec(EventType::VaultCreated)).unwrap();
+        log.append(ts(2), spec(EventType::VaultUnlocked)).unwrap();
+
+        // Build a different, fully authenticated chain with the same key
+        // and segment numbers, then replay it over the on-disk log.
+        let (_stale_tmp, stale_audit) = init_dir();
+        let mut stale = AuditLog::open_with(&stale_audit, config, &TEST_KEY).unwrap();
+        stale.append(ts(10), spec(EventType::KeyCreated)).unwrap();
+        let stale_anchor = stale.head_event_hash().unwrap().to_vec();
+        stale.append(ts(11), spec(EventType::KeyUsed)).unwrap();
+
+        for number in 1..=2 {
+            fs::copy(
+                stale_audit.join(format!("audit-{number:05}.nqa")),
+                audit.join(format!("audit-{number:05}.nqa")),
+            )
+            .unwrap();
+        }
+
+        assert!(!log.contains_event_hash(&stale_anchor));
     }
 
     #[test]
