@@ -755,17 +755,22 @@ fn authorization_resource(
     verified: VerifiedRequest,
 ) -> Result<Response, AcmeError> {
     let id = path.trim_start_matches("/acme/authz/");
-    let authorizations = state
-        .authorizations
-        .read()
-        .map_err(|_| AcmeError::server())?;
-    let authz = authorizations.get(id).ok_or_else(AcmeError::not_found)?;
+    let authz = {
+        let authorizations = state
+            .authorizations
+            .read()
+            .map_err(|_| AcmeError::server())?;
+        authorizations
+            .get(id)
+            .cloned()
+            .ok_or_else(AcmeError::not_found)?
+    };
     if verified.account_id.as_deref() != Some(authz.account_id.as_str()) {
         return Err(AcmeError::unauthorized());
     }
     Ok(json_response(
         StatusCode::OK,
-        authorization_json(state, authz)?,
+        authorization_json(state, &authz)?,
     ))
 }
 
