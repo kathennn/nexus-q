@@ -521,8 +521,10 @@ fn prune_expired_resources(state: &AcmeState) -> Result<(), AcmeError> {
     if expired_orders.is_empty() {
         return Ok(());
     }
-    let expired_order_ids: HashSet<String> =
-        expired_orders.iter().map(|order| order.id.clone()).collect();
+    let expired_order_ids: HashSet<String> = expired_orders
+        .iter()
+        .map(|order| order.id.clone())
+        .collect();
     let expired_authz_ids: HashSet<String> = expired_orders
         .iter()
         .flat_map(|order| order.authorization_ids.iter().cloned())
@@ -537,7 +539,10 @@ fn prune_expired_resources(state: &AcmeState) -> Result<(), AcmeError> {
         .collect();
 
     let mut challenges = state.challenges.write().map_err(|_| AcmeError::server())?;
-    let mut authorizations = state.authorizations.write().map_err(|_| AcmeError::server())?;
+    let mut authorizations = state
+        .authorizations
+        .write()
+        .map_err(|_| AcmeError::server())?;
     let mut orders = state.orders.write().map_err(|_| AcmeError::server())?;
     for id in expired_challenge_ids {
         challenges.remove(&id);
