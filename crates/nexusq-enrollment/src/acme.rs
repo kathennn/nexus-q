@@ -855,27 +855,30 @@ async fn challenge_resource(
         .get(&authz_id)
         .map(|a| a.order_id.clone())
         .ok_or_else(AcmeError::server)?;
+    let order_authorization_ids = state
+        .orders
+        .read()
+        .map_err(|_| AcmeError::server())?
+        .get(&authz_order_id)
+        .map(|order| order.authorization_ids.clone())
+        .ok_or_else(AcmeError::server)?;
     let all_authzs_valid = {
-        let orders = state.orders.read().map_err(|_| AcmeError::server())?;
-        let order = orders.get(&authz_order_id).ok_or_else(AcmeError::server)?;
         let authzs = state
             .authorizations
             .read()
             .map_err(|_| AcmeError::server())?;
-        order.authorization_ids.iter().all(|authz_id| {
+        order_authorization_ids.iter().all(|authz_id| {
             authzs
                 .get(authz_id)
                 .is_some_and(|authz| authz.status == "valid")
         })
     };
     let any_authz_invalid = {
-        let orders = state.orders.read().map_err(|_| AcmeError::server())?;
-        let order = orders.get(&authz_order_id).ok_or_else(AcmeError::server)?;
         let authzs = state
             .authorizations
             .read()
             .map_err(|_| AcmeError::server())?;
-        order.authorization_ids.iter().any(|authz_id| {
+        order_authorization_ids.iter().any(|authz_id| {
             authzs
                 .get(authz_id)
                 .is_some_and(|authz| authz.status == "invalid")
