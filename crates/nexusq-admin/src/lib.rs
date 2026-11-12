@@ -596,7 +596,7 @@ fn verify_audit_file(file: &mut File, key: &[u8; 32]) -> Result<(u64, [u8; 32]),
         if record.body.sequence != sequence + 1
             || record.previous_hash != head
             || record.hash != audit_hash(&record.body, &head)?
-            || record.mac != audit_mac(key, &head, &record.hash)?
+            || !bool::from(record.mac.ct_eq(&audit_mac(key, &head, &record.hash)?))
         {
             return Err(AdminError::AuditIntegrity);
         }

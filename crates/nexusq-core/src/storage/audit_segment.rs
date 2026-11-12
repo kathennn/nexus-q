@@ -43,6 +43,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use subtle::ConstantTimeEq as _;
 
 use crate::crypto::random::{OsRandomSource, RandomError, RandomSource};
 use crate::vault::Timestamp;
@@ -248,7 +249,8 @@ impl AuditSegment {
             expected_prev.clone_from(&event.hash);
         }
 
-        if self.segment_hash()? != self.stored_hash {
+        let computed_hash = self.segment_hash()?;
+        if !bool::from(computed_hash.ct_eq(&self.stored_hash)) {
             return Err(DbError::TrailerCrcMismatch);
         }
         Ok(())
