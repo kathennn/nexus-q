@@ -7,6 +7,12 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref or commit SHA to validate'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -23,6 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.ref || github.sha }}
           submodules: recursive
       - uses: dtolnay/rust-toolchain@1.88.0
         with:
