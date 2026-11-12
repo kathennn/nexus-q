@@ -55,7 +55,7 @@ use crate::crypto::aead::{self, AeadError, Algorithm as AeadAlgorithm};
 use crate::crypto::kdf::{self, KdfError};
 use crate::crypto::random::{OsRandomSource, RandomError, RandomSource};
 use crate::vault::body::VaultBody;
-use crate::vault::header::{HeaderError, KdfAlgorithm, KdfParams};
+use crate::vault::header::{HeaderError, KdfParams};
 use crate::vault::operation::{
     OperationControl, OperationError, OperationPhase, OperationProgress,
 };
@@ -319,7 +319,7 @@ fn write_backup_file_controlled(
         published = true;
         fs::remove_file(&tmp).map_err(BackupError::from)?;
         restrict_file_permissions(path)?;
-        sync_parent_dir(path)?;
+        sync_parent_dir(path).map_err(BackupError::from)?;
         Ok(())
     })();
     if result.is_err() {
