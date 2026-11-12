@@ -821,13 +821,23 @@ async fn challenge_resource(
         )
         .await;
     let status = if valid { "valid" } else { "invalid" };
-    let mut updated = challenge.clone();
-    updated.status = status.to_owned();
-    state
-        .challenges
-        .write()
-        .map_err(|_| AcmeError::server())?
-        .insert(id.to_owned(), updated.clone());
+    let updated = {
+        let mut challenges = state
+            .challenges
+            .write()
+            .map_err(|_| AcmeError::server())?;
+        let stored = challenges.get_mut(id).ok_or_else(AcmeError::not_found)?;
+        if stored.status == "pending" {
+            stored.status = status.to_owned();
+        }
+        stored.clone()
+    };
+    if updated.status != status {
+        return Ok(json_response(
+            StatusCode::OK,
+            challenge_json(state, &updated),
+        ));
+    }
     let authz_id = challenge.authorization_id.clone();
     {
         let challenges = state.challenges.read().map_err(|_| AcmeError::server())?;
