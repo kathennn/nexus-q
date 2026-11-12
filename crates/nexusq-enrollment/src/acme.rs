@@ -822,10 +822,7 @@ async fn challenge_resource(
         .await;
     let status = if valid { "valid" } else { "invalid" };
     let updated = {
-        let mut challenges = state
-            .challenges
-            .write()
-            .map_err(|_| AcmeError::server())?;
+        let mut challenges = state.challenges.write().map_err(|_| AcmeError::server())?;
         let stored = challenges.get_mut(id).ok_or_else(AcmeError::not_found)?;
         if stored.status == "pending" {
             stored.status = status.to_owned();
