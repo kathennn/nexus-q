@@ -613,7 +613,10 @@ fn append_frame(file: &mut File, frame: &JournalFrame) -> Result<(), HaError> {
     if encoded.len() > MAX_RECORD_BYTES * 4 + 4096 {
         return Err(HaError::InvalidRecord);
     }
-    let start = file.metadata().map_err(|_| HaError::StorageUnavailable)?.len();
+    let start = file
+        .metadata()
+        .map_err(|_| HaError::StorageUnavailable)?
+        .len();
     if file
         .write_all(&encoded)
         .and_then(|_| file.write_all(b"\n"))
@@ -1181,8 +1184,12 @@ mod tests {
         let dir = tempdir().unwrap();
         let tenant = TenantId::new("alpha").unwrap();
         let journal = DurableTenantJournal::open(dir.path(), tenant.clone()).unwrap();
-        let record = journal.prepare(1, "certificate.issued", b"serial=1").unwrap();
-        journal.commit_prepared(record.sequence, record.hash).unwrap();
+        let record = journal
+            .prepare(1, "certificate.issued", b"serial=1")
+            .unwrap();
+        journal
+            .commit_prepared(record.sequence, record.hash)
+            .unwrap();
         let path = journal.path().to_path_buf();
         let valid_len = std::fs::metadata(&path).unwrap().len();
         drop(journal);
