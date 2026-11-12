@@ -206,7 +206,7 @@ impl SoftwareBackend {
                 "invalid secure-storage key",
             ))
         };
-        if name.is_empty() || name.starts_with('/') || name.contains('\') || name.contains(':') {
+        if name.is_empty() || name.starts_with('/') || name.contains('\\') || name.contains(':') {
             return Err(invalid());
         }
 
@@ -224,9 +224,12 @@ impl SoftwareBackend {
             if segment.is_empty()
                 || segment == "."
                 || segment == ".."
-                || segment.ends_with(' ') || segment.ends_with('.')
+                || segment.ends_with(' ')
+                || segment.ends_with('.')
                 || segment.chars().any(char::is_control)
-                || segment.chars().any(|ch| matches!(ch, '<' | '>' | '"' | '|' | '?' | '*'))
+                || segment
+                    .chars()
+                    .any(|ch| matches!(ch, '<' | '>' | '"' | '|' | '?' | '*'))
                 || reserved_device
             {
                 return Err(invalid());
