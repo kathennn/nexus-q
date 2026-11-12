@@ -457,7 +457,9 @@ fn create_unique_temp_file(path: &Path) -> Result<(PathBuf, fs::File), DbError> 
             .map_err(|error| DbError::Io(std::io::Error::other(error.to_string())))?;
         let name = format!(
             "{}.tmp-{}",
-            path.file_name().and_then(|name| name.to_str()).unwrap_or("db"),
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("db"),
             hex::encode(suffix)
         );
         let tmp = path.with_file_name(name);
