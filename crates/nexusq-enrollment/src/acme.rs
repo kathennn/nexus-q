@@ -830,6 +830,8 @@ async fn challenge_resource(
             .write()
             .map_err(|_| AcmeError::server())?
             .get_mut(&authz_order_id)
+        && order.status != "processing"
+        && order.status != "valid"
     {
         order.status = if all_authzs_valid { "ready" } else { "invalid" }.to_owned();
     }
