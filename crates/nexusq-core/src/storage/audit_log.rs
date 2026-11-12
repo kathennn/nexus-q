@@ -44,8 +44,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
-use zeroize::Zeroizing;
 use subtle::ConstantTimeEq as _;
+use zeroize::Zeroizing;
 
 use crate::vault::Timestamp;
 

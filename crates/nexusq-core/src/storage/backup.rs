@@ -46,8 +46,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use zeroize::Zeroizing;
 use subtle::ConstantTimeEq as _;
+use zeroize::Zeroizing;
 
 use crate::crypto::aead::{self, AeadError, Algorithm as AeadAlgorithm};
 use crate::crypto::kdf::{self, KdfError};

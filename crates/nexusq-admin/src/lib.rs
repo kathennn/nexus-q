@@ -13,7 +13,6 @@ use hmac::{Hmac, Mac};
 use nexusq_ha::{DurableTenantJournal, JournalSnapshot, TenantId};
 use rand_core::{OsRng, TryRngCore};
 use serde::{Deserialize, Serialize};
-use subtle::ConstantTimeEq as _;
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeSet, HashSet},
@@ -26,6 +25,7 @@ use std::{
     },
     time::{SystemTime, UNIX_EPOCH},
 };
+use subtle::ConstantTimeEq as _;
 use subtle::ConstantTimeEq;
 use zeroize::Zeroizing;
 
