@@ -648,12 +648,12 @@ fn recover_frames(
     loop {
         line.clear();
         let bytes_read = reader
-            .read_until(b\n, &mut line)
+            .read_until(b'\n', &mut line)
             .map_err(|_| HaError::StorageUnavailable)?;
         if bytes_read == 0 {
             break;
         }
-        if line.last() != Some(&b\n) {
+        if line.last() != Some(&b'\n') {
             // A crash can interrupt the final append between any two bytes.
             // Only discard an unterminated tail; complete malformed frames remain fatal.
             file.set_len(valid_len)
@@ -663,7 +663,7 @@ fn recover_frames(
             break;
         }
         line.pop();
-        if line.last() == Some(&b\r) {
+        if line.last() == Some(&b'\r') {
             line.pop();
         }
         if line.len() > MAX_RECORD_BYTES * 4 + 4096 {
