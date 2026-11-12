@@ -43,12 +43,14 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use subtle::ConstantTimeEq as _;
 
 use crate::crypto::random::{OsRandomSource, RandomError, RandomSource};
 use crate::vault::Timestamp;
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
+use super::atomic::{replace_file, sync_parent_dir};
 use super::audit_event::{AuditEvent, AuditEventSpec, GENESIS_HASH, HASH_LEN};
 use super::db::DbError;
 
@@ -248,7 +250,8 @@ impl AuditSegment {
             expected_prev.clone_from(&event.hash);
         }
 
-        if self.segment_hash()? != self.stored_hash {
+        let computed_hash = self.segment_hash()?;
+        if !bool::from(computed_hash.ct_eq(&self.stored_hash)) {
             return Err(DbError::TrailerCrcMismatch);
         }
         Ok(())
@@ -328,6 +331,9 @@ impl AuditSegment {
         let body_start = HEADER_LEN;
         let body_end = bytes.len() - TRAILER_LEN;
         let body = &bytes[body_start..body_end];
+        if count > body.len() / 4 {
+            return Err(DbError::MalformedRecord);
+        }
 
         let mut events = Vec::with_capacity(count);
         let mut cursor = 0;
@@ -400,7 +406,7 @@ impl AuditSegment {
         file.write_all(&bytes)?;
         file.sync_all()?;
         drop(file);
-        if let Err(e) = fs::rename(&tmp, path) {
+        if let Err(e) = replace_file(&tmp, path) {
             let _ = fs::remove_file(&tmp);
             return Err(DbError::Io(e));
         }
@@ -460,16 +466,6 @@ fn create_unique_temp_file(path: &Path) -> Result<(PathBuf, fs::File), DbError> 
         std::io::ErrorKind::AlreadyExists,
         "could not allocate unique audit temp file",
     )))
-}
-
-fn sync_parent_dir(path: &Path) -> Result<(), DbError> {
-    #[cfg(unix)]
-    {
-        if let Some(parent) = path.parent() {
-            fs::File::open(parent)?.sync_all()?;
-        }
-    }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -569,6 +565,22 @@ mod tests {
         b.append(ts(1), spec(EventType::KeyCreated)).unwrap();
 
         assert_ne!(a.segment_hash().unwrap(), b.segment_hash().unwrap());
+    }
+
+    #[test]
+    fn parser_rejects_impossible_event_count_before_allocating() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&MAGIC);
+        bytes.push(FORMAT_VERSION);
+        bytes.extend_from_slice(&[0u8; SEGMENT_ID_LEN]);
+        bytes.extend_from_slice(&[0u8; HASH_LEN]);
+        bytes.extend_from_slice(&u32::MAX.to_be_bytes());
+        bytes.extend_from_slice(&[0u8; HASH_LEN]);
+
+        assert!(matches!(
+            AuditSegment::from_bytes(&bytes),
+            Err(DbError::MalformedRecord)
+        ));
     }
 
     #[test]
