@@ -404,14 +404,17 @@ pub fn import(
     body.audit_anchor = None;
 
     // Create a fresh vault and replace its body with the imported one.
-    Vault::create(new_vault_path, new_vault_password, None)?;
-    let vault = Vault::open(new_vault_path)?;
-    let mut session = vault.unlock(new_vault_password)?;
-    session.rewrap_body_from(&mut body, backup_kek.as_ref())?;
-    *session.body_mut()? = body;
-    let vault = session.lock()?;
-
-    Ok(vault)
+    let vault = Vault::create(new_vault_path, new_vault_password, None)?;
+    let result = (|| {
+        let mut session = vault.unlock(new_vault_password)?;
+        session.rewrap_body_from(&mut body, backup_kek.as_ref())?;
+        *session.body_mut()? = body;
+        Ok(session.lock()?)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(new_vault_path);
+    }
+    result
 }
 
 /// Import a backup with safe cancellation points and backend progress updates.
