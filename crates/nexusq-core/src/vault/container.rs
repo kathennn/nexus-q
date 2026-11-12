@@ -320,14 +320,15 @@ impl Vault {
             };
             let body = VaultBody::new(metadata);
 
-            let vault = Self { path: path.clone(), header };
+            let vault = Self {
+                path: path.clone(),
+                header,
+            };
             vault.write_body(&body, &kek)?;
             Ok(vault)
         })();
 
-        if result.is_err()
-            && fs::metadata(&path).is_ok_and(|metadata| metadata.len() == 0)
-        {
+        if result.is_err() && fs::metadata(&path).is_ok_and(|metadata| metadata.len() == 0) {
             let _ = fs::remove_file(&path);
         }
         result
