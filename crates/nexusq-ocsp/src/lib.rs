@@ -177,7 +177,10 @@ impl RevocationStore {
     /// Mark a certificate as known and not revoked.
     pub fn mark_good(&mut self, serial: &SerialNumber) -> Result<(), Error> {
         let encoded = serial.to_der()?;
-        if matches!(self.entries.get(&encoded), Some(CertificateStatus::Revoked { .. })) {
+        if matches!(
+            self.entries.get(&encoded),
+            Some(CertificateStatus::Revoked { .. })
+        ) {
             return Err(Error::AlreadyRevoked);
         }
         self.entries.insert(encoded, CertificateStatus::Good);
@@ -849,7 +852,10 @@ mod tests {
             )
             .unwrap();
 
-        assert!(matches!(store.mark_good(&serial), Err(Error::AlreadyRevoked)));
+        assert!(matches!(
+            store.mark_good(&serial),
+            Err(Error::AlreadyRevoked)
+        ));
         assert!(matches!(
             store.get(&serial).unwrap(),
             Some(CertificateStatus::Revoked {
