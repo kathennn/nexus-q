@@ -586,38 +586,6 @@ impl DurableTenantJournal {
         validate_snapshot(&snapshot, tenant)?;
         Ok(snapshot)
     }
-
-    fn advance_sequence_to(&self, next_sequence: u64) -> Result<(), HaError> {
-        let mut state = self.state.lock().map_err(|_| HaError::StateUnavailable)?;
-        if !state.pending.is_empty() || next_sequence < state.next_sequence {
-            return Err(HaError::JournalCorrupt);
-        }
-        if next_sequence == state.next_sequence {
-            return Ok(());
-        }
-        append_frame(
-            &mut state.file,
-            &JournalFrame::SequenceAdvance { next_sequence },
-        )?;
-        state.next_sequence = next_sequence;
-        Ok(())
-    }
-
-    fn advance_fencing_to(&self, highest_term: u64) -> Result<(), HaError> {
-        let mut state = self.state.lock().map_err(|_| HaError::StateUnavailable)?;
-        if !state.pending.is_empty() || highest_term < state.highest_term {
-            return Err(HaError::JournalCorrupt);
-        }
-        if highest_term == state.highest_term {
-            return Ok(());
-        }
-        append_frame(
-            &mut state.file,
-            &JournalFrame::FencingAdvance { highest_term },
-        )?;
-        state.highest_term = highest_term;
-        Ok(())
-    }
 }
 
 static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(1);
