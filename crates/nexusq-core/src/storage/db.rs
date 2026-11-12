@@ -307,16 +307,21 @@ impl StorageDb {
         if version != FORMAT_VERSION {
             return Err(DbError::UnsupportedVersion(version));
         }
-        let count = u64::from_be_bytes(
+        let count = usize::try_from(u64::from_be_bytes(
             bytes[5..13]
                 .try_into()
                 .expect("slice of 8 bytes by construction"),
-        ) as usize;
+        ))
+        .map_err(|_| DbError::MalformedRecord)?;
 
-        // Parse records up to the trailer.
+        // Parse records up to the trailer. Even an empty key/value record
+        // needs 13 bytes, so reject impossible counts before entering the loop.
         let body_start = HEADER_LEN;
         let body_end = bytes.len() - TRAILER_LEN;
         let body = &bytes[body_start..body_end];
+        if count > body.len() / 13 {
+            return Err(DbError::MalformedRecord);
+        }
 
         let mut records = BTreeMap::new();
         let mut trailer = Vec::new();
@@ -564,6 +569,20 @@ mod tests {
 
         let entries: Vec<_> = db.entries(RecordKind::Config).collect();
         assert_eq!(entries, vec![(&b"theme"[..], &b"dark"[..])]);
+    }
+
+    #[test]
+    fn parser_rejects_impossible_record_count() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&MAGIC);
+        bytes.push(FORMAT_VERSION);
+        bytes.extend_from_slice(&u64::MAX.to_be_bytes());
+        bytes.extend_from_slice(&crc32c::crc32c(&[]).to_be_bytes());
+
+        assert!(matches!(
+            StorageDb::from_bytes(&bytes),
+            Err(DbError::MalformedRecord)
+        ));
     }
 
     #[test]

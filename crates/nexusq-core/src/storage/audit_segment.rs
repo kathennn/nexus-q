@@ -328,6 +328,9 @@ impl AuditSegment {
         let body_start = HEADER_LEN;
         let body_end = bytes.len() - TRAILER_LEN;
         let body = &bytes[body_start..body_end];
+        if count > body.len() / 4 {
+            return Err(DbError::MalformedRecord);
+        }
 
         let mut events = Vec::with_capacity(count);
         let mut cursor = 0;
@@ -569,6 +572,22 @@ mod tests {
         b.append(ts(1), spec(EventType::KeyCreated)).unwrap();
 
         assert_ne!(a.segment_hash().unwrap(), b.segment_hash().unwrap());
+    }
+
+    #[test]
+    fn parser_rejects_impossible_event_count_before_allocating() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&MAGIC);
+        bytes.push(FORMAT_VERSION);
+        bytes.extend_from_slice(&[0u8; SEGMENT_ID_LEN]);
+        bytes.extend_from_slice(&[0u8; HASH_LEN]);
+        bytes.extend_from_slice(&u32::MAX.to_be_bytes());
+        bytes.extend_from_slice(&[0u8; HASH_LEN]);
+
+        assert!(matches!(
+            AuditSegment::from_bytes(&bytes),
+            Err(DbError::MalformedRecord)
+        ));
     }
 
     #[test]
