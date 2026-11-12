@@ -19,7 +19,11 @@ pub(crate) fn replace_file(source: &Path, destination: &Path) -> io::Result<()> 
         }
 
         let source: Vec<u16> = source.as_os_str().encode_wide().chain(once(0)).collect();
-        let destination: Vec<u16> = destination.as_os_str().encode_wide().chain(once(0)).collect();
+        let destination: Vec<u16> = destination
+            .as_os_str()
+            .encode_wide()
+            .chain(once(0))
+            .collect();
         let result = unsafe {
             MoveFileExW(
                 source.as_ptr(),

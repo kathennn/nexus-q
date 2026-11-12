@@ -994,7 +994,11 @@ fn atomic_replace(source: &Path, destination: &Path) -> std::io::Result<()> {
     }
 
     let source: Vec<u16> = source.as_os_str().encode_wide().chain(once(0)).collect();
-    let destination: Vec<u16> = destination.as_os_str().encode_wide().chain(once(0)).collect();
+    let destination: Vec<u16> = destination
+        .as_os_str()
+        .encode_wide()
+        .chain(once(0))
+        .collect();
     let result = unsafe {
         MoveFileExW(
             source.as_ptr(),
@@ -1002,7 +1006,11 @@ fn atomic_replace(source: &Path, destination: &Path) -> std::io::Result<()> {
             MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
         )
     };
-    if result == 0 { Err(std::io::Error::last_os_error()) } else { Ok(()) }
+    if result == 0 {
+        Err(std::io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(not(windows))]
