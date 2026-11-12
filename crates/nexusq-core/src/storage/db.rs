@@ -43,6 +43,7 @@
 
 use std::collections::BTreeMap;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -434,20 +435,51 @@ impl StorageDb {
     pub fn save(&self, path: impl AsRef<Path>) -> Result<(), DbError> {
         let path = path.as_ref();
         let bytes = self.to_bytes()?;
-        let tmp = temp_path(path);
-        fs::write(&tmp, &bytes)?;
-        if let Err(e) = fs::rename(&tmp, path) {
+        let (tmp, mut file) = create_unique_temp_file(path)?;
+        if let Err(error) = file.write_all(&bytes).and_then(|_| file.sync_all()) {
+            drop(file);
             let _ = fs::remove_file(&tmp);
-            return Err(DbError::Io(e));
+            return Err(DbError::Io(error));
+        }
+        drop(file);
+        if let Err(error) = fs::rename(&tmp, path) {
+            let _ = fs::remove_file(&tmp);
+            return Err(DbError::Io(error));
         }
         Ok(())
     }
 }
 
-fn temp_path(path: &Path) -> PathBuf {
-    let mut name = path.file_name().unwrap_or_default().to_os_string();
-    name.push(".tmp");
-    path.with_file_name(name)
+fn create_unique_temp_file(path: &Path) -> Result<(PathBuf, fs::File), DbError> {
+    for _ in 0..16 {
+        let mut suffix = [0u8; 16];
+        getrandom::fill(&mut suffix)
+            .map_err(|error| DbError::Io(std::io::Error::other(error.to_string())))?;
+        let name = format!(
+            "{}.tmp-{}",
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("db"),
+            hex::encode(suffix)
+        );
+        let tmp = path.with_file_name(name);
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        match options.open(&tmp) {
+            Ok(file) => return Ok((tmp, file)),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(DbError::Io(error)),
+        }
+    }
+    Err(DbError::Io(std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        "could not allocate unique database temp file",
+    )))
 }
 
 #[cfg(test)]
@@ -532,6 +564,19 @@ mod tests {
 
         let entries: Vec<_> = db.entries(RecordKind::Config).collect();
         assert_eq!(entries, vec![(&b"theme"[..], &b"dark"[..])]);
+    }
+
+    #[test]
+    fn save_uses_distinct_exclusive_temp_files() {
+        let dir = TempDir::new().unwrap();
+        let target = dir.path().join("store.nqs");
+        let (first_path, first_file) = create_unique_temp_file(&target).unwrap();
+        let (second_path, second_file) = create_unique_temp_file(&target).unwrap();
+        assert_ne!(first_path, second_path);
+        drop(first_file);
+        drop(second_file);
+        fs::remove_file(first_path).unwrap();
+        fs::remove_file(second_path).unwrap();
     }
 
     #[test]
