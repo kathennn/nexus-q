@@ -49,11 +49,13 @@ use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq as _;
 use zeroize::Zeroizing;
 
+use super::atomic::{replace_file, sync_parent_dir};
+
 use crate::crypto::aead::{self, AeadError, Algorithm as AeadAlgorithm};
 use crate::crypto::kdf::{self, KdfError};
 use crate::crypto::random::{OsRandomSource, RandomError, RandomSource};
 use crate::vault::body::VaultBody;
-use crate::vault::header::{HeaderError, KdfAlgorithm, KdfParams};
+use crate::vault::header::{HeaderError, KdfParams};
 use crate::vault::operation::{
     OperationControl, OperationError, OperationPhase, OperationProgress,
 };
@@ -317,7 +319,7 @@ fn write_backup_file_controlled(
         published = true;
         fs::remove_file(&tmp).map_err(BackupError::from)?;
         restrict_file_permissions(path)?;
-        sync_parent_dir(path)?;
+        sync_parent_dir(path).map_err(BackupError::from)?;
         Ok(())
     })();
     if result.is_err() {
@@ -585,7 +587,7 @@ fn write_backup_file(
     file.write_all(&out)?;
     file.sync_all()?;
     drop(file);
-    if let Err(e) = fs::rename(&tmp, path) {
+    if let Err(e) = replace_file(&tmp, path) {
         let _ = fs::remove_file(&tmp);
         return Err(BackupError::Io(e));
     }
@@ -664,21 +666,6 @@ fn create_unique_temp_file(path: &Path) -> Result<(PathBuf, fs::File), BackupErr
         "could not allocate unique backup temp file",
     )))
 }
-
-fn sync_parent_dir(path: &Path) -> Result<(), BackupError> {
-    #[cfg(unix)]
-    {
-        if let Some(parent) = path.parent() {
-            fs::File::open(parent)?.sync_all()?;
-        }
-    }
-    Ok(())
-}
-
-// KdfAlgorithm is re-exported by the vault header module and used
-// implicitly through KdfParams; keep the import exercised.
-#[allow(dead_code)]
-fn _keep_kdf_algorithm_in_scope(_a: KdfAlgorithm) {}
 
 #[cfg(test)]
 mod tests {

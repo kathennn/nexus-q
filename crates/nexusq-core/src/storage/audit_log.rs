@@ -49,6 +49,7 @@ use zeroize::Zeroizing;
 
 use crate::vault::Timestamp;
 
+use super::atomic::{replace_file, sync_parent_dir};
 use super::audit_event::{AuditEvent, AuditEventSpec, HASH_LEN};
 use super::audit_segment::{AuditSegment, SegmentId};
 use super::db::DbError;
@@ -356,10 +357,8 @@ impl AuditLog {
         file.write_all(&bytes)?;
         file.sync_all()?;
         drop(file);
-        fs::rename(&tmp, self.anchor_path())?;
-        if let Some(parent) = self.anchor_path().parent() {
-            fs::File::open(parent)?.sync_all()?;
-        }
+        replace_file(&tmp, &self.anchor_path())?;
+        sync_parent_dir(&self.anchor_path())?;
         Ok(())
     }
 

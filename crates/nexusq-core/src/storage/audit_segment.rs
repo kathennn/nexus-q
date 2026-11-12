@@ -50,6 +50,7 @@ use crate::vault::Timestamp;
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
+use super::atomic::{replace_file, sync_parent_dir};
 use super::audit_event::{AuditEvent, AuditEventSpec, GENESIS_HASH, HASH_LEN};
 use super::db::DbError;
 
@@ -405,7 +406,7 @@ impl AuditSegment {
         file.write_all(&bytes)?;
         file.sync_all()?;
         drop(file);
-        if let Err(e) = fs::rename(&tmp, path) {
+        if let Err(e) = replace_file(&tmp, path) {
             let _ = fs::remove_file(&tmp);
             return Err(DbError::Io(e));
         }
@@ -465,16 +466,6 @@ fn create_unique_temp_file(path: &Path) -> Result<(PathBuf, fs::File), DbError> 
         std::io::ErrorKind::AlreadyExists,
         "could not allocate unique audit temp file",
     )))
-}
-
-fn sync_parent_dir(path: &Path) -> Result<(), DbError> {
-    #[cfg(unix)]
-    {
-        if let Some(parent) = path.parent() {
-            fs::File::open(parent)?.sync_all()?;
-        }
-    }
-    Ok(())
 }
 
 #[cfg(test)]

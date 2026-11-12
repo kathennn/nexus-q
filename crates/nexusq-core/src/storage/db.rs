@@ -48,6 +48,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use super::atomic::{replace_file, sync_parent_dir};
+
 /// File magic for the storage database.
 pub const MAGIC: [u8; 4] = *b"NQS1";
 
@@ -447,10 +449,11 @@ impl StorageDb {
             return Err(DbError::Io(error));
         }
         drop(file);
-        if let Err(error) = fs::rename(&tmp, path) {
+        if let Err(error) = replace_file(&tmp, path) {
             let _ = fs::remove_file(&tmp);
             return Err(DbError::Io(error));
         }
+        sync_parent_dir(path)?;
         Ok(())
     }
 }

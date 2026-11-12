@@ -963,7 +963,7 @@ fn atomic_write(path: &Path, bytes: &[u8], no_replace: bool) -> Result<(), Admin
     let result = if no_replace {
         fs::hard_link(&temp, path)
     } else {
-        fs::rename(&temp, path)
+        atomic_replace(&temp, path)
     };
     if result.is_err() {
         let _ = fs::remove_file(&temp);
@@ -974,9 +974,48 @@ fn atomic_write(path: &Path, bytes: &[u8], no_replace: bool) -> Result<(), Admin
         });
     }
     let _ = fs::remove_file(&temp);
+    #[cfg(unix)]
     File::open(parent)
         .and_then(|directory| directory.sync_all())
-        .map_err(|_| AdminError::Storage)
+        .map_err(|_| AdminError::Storage)?;
+    Ok(())
+}
+
+#[cfg(windows)]
+fn atomic_replace(source: &Path, destination: &Path) -> std::io::Result<()> {
+    use std::{iter::once, os::windows::ffi::OsStrExt};
+
+    const MOVEFILE_REPLACE_EXISTING: u32 = 0x1;
+    const MOVEFILE_WRITE_THROUGH: u32 = 0x8;
+
+    #[link(name = "Kernel32")]
+    unsafe extern "system" {
+        fn MoveFileExW(existing: *const u16, new: *const u16, flags: u32) -> i32;
+    }
+
+    let source: Vec<u16> = source.as_os_str().encode_wide().chain(once(0)).collect();
+    let destination: Vec<u16> = destination
+        .as_os_str()
+        .encode_wide()
+        .chain(once(0))
+        .collect();
+    let result = unsafe {
+        MoveFileExW(
+            source.as_ptr(),
+            destination.as_ptr(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+        )
+    };
+    if result == 0 {
+        Err(std::io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(not(windows))]
+fn atomic_replace(source: &Path, destination: &Path) -> std::io::Result<()> {
+    fs::rename(source, destination)
 }
 
 /// Administrative security errors.
