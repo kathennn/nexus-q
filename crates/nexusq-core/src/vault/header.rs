@@ -27,6 +27,7 @@
 //! probability.
 
 use serde::{Deserialize, Serialize};
+use subtle::ConstantTimeEq as _;
 
 use crate::crypto::kdf::{KdfError, hkdf_sha256};
 
@@ -163,7 +164,7 @@ impl VaultHeader {
     /// does not match, and [`HeaderError::Kdf`] if the derivation fails.
     pub fn verify_kek(&self, kek: &[u8]) -> Result<(), HeaderError> {
         let computed = compute_kek_verifier(kek)?;
-        if computed == self.kek_verifier {
+        if bool::from(computed.ct_eq(&self.kek_verifier)) {
             Ok(())
         } else {
             Err(HeaderError::WrongPassword)

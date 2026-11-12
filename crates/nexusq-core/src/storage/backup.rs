@@ -46,6 +46,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use subtle::ConstantTimeEq as _;
 use zeroize::Zeroizing;
 
 use super::atomic::{replace_file, sync_parent_dir};
@@ -405,14 +406,17 @@ pub fn import(
     body.audit_anchor = None;
 
     // Create a fresh vault and replace its body with the imported one.
-    Vault::create(new_vault_path, new_vault_password, None)?;
-    let vault = Vault::open(new_vault_path)?;
-    let mut session = vault.unlock(new_vault_password)?;
-    session.rewrap_body_from(&mut body, backup_kek.as_ref())?;
-    *session.body_mut()? = body;
-    let vault = session.lock()?;
-
-    Ok(vault)
+    let vault = Vault::create(new_vault_path, new_vault_password, None)?;
+    let result = (|| {
+        let mut session = vault.unlock(new_vault_password)?;
+        session.rewrap_body_from(&mut body, backup_kek.as_ref())?;
+        *session.body_mut()? = body;
+        Ok(session.lock()?)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(new_vault_path);
+    }
+    result
 }
 
 /// Import a backup with safe cancellation points and backend progress updates.
@@ -532,7 +536,7 @@ fn build_header(kdf: KdfParams, salt: Vec<u8>, kek: &[u8]) -> Result<BackupHeade
 
 fn verify_backup_kek(header: &BackupHeader, kek: &[u8]) -> Result<(), BackupError> {
     let computed = compute_kek_verifier(kek)?;
-    if computed == header.kek_verifier {
+    if bool::from(computed.ct_eq(&header.kek_verifier)) {
         Ok(())
     } else {
         Err(BackupError::WrongPassphrase)

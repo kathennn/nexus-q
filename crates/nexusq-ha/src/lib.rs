@@ -372,7 +372,8 @@ impl DurableTenantJournal {
         Ok(record)
     }
     pub fn accept_replica_prepare(&self, record: &JournalRecord) -> Result<(), HaError> {
-        if record.tenant != self.tenant || record.hash != record_hash(record) || record.term == 0 {
+        validate_record_fields(record)?;
+        if record.tenant != self.tenant || record.hash != record_hash(record) {
             return Err(HaError::HashMismatch);
         }
         let mut state = self.state.lock().map_err(|_| HaError::StateUnavailable)?;
@@ -679,6 +680,7 @@ fn recover_frames(
             serde_json::from_str(&line).map_err(|_| HaError::JournalCorrupt)?;
         match frame {
             JournalFrame::Prepared { record } => {
+                validate_record_fields(&record).map_err(|_| HaError::JournalCorrupt)?;
                 if record.tenant != *tenant
                     || record.sequence != next_sequence
                     || record.previous_hash != last_hash
@@ -778,6 +780,7 @@ fn validate_snapshot(
     let mut previous_sequence = 0u64;
     let mut maximum_record_term = 0u64;
     for record in &snapshot.records {
+        validate_record_fields(record).map_err(|_| HaError::JournalCorrupt)?;
         if record.tenant != snapshot.tenant
             || record.sequence <= previous_sequence
             || record.sequence >= snapshot.next_sequence
@@ -793,6 +796,19 @@ fn validate_snapshot(
     }
     if snapshot.highest_term < maximum_record_term {
         return Err(HaError::JournalCorrupt);
+    }
+    Ok(())
+}
+
+fn validate_record_fields(record: &JournalRecord) -> Result<(), HaError> {
+    if record.term == 0
+        || record.kind.is_empty()
+        || record.kind.len() > 128
+        || !record.kind.is_ascii()
+        || record.kind.chars().any(char::is_control)
+        || record.payload.len() > MAX_RECORD_BYTES
+    {
+        return Err(HaError::InvalidRecord);
     }
     Ok(())
 }
@@ -1177,6 +1193,28 @@ mod tests {
         catalog.set_issuance(&alpha, false).unwrap();
         assert!(!catalog.get(&alpha).unwrap().issuance_enabled);
         assert!(catalog.get(&beta).unwrap().issuance_enabled);
+    }
+
+    #[test]
+    fn replica_prepare_rejects_payloads_over_the_local_record_limit() {
+        let dir = tempdir().unwrap();
+        let tenant = TenantId::new("alpha").unwrap();
+        let journal = DurableTenantJournal::open(dir.path(), tenant.clone()).unwrap();
+        let mut record = JournalRecord {
+            tenant,
+            sequence: 1,
+            term: 1,
+            kind: "certificate.issued".to_owned(),
+            payload: vec![0; MAX_RECORD_BYTES + 1],
+            previous_hash: [0; 32],
+            hash: [0; 32],
+            created_at: 1,
+        };
+        record.hash = record_hash(&record);
+        assert!(matches!(
+            journal.accept_replica_prepare(&record),
+            Err(HaError::InvalidRecord)
+        ));
     }
 
     #[test]
