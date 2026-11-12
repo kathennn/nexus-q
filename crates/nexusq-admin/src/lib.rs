@@ -25,7 +25,6 @@ use std::{
     },
     time::{SystemTime, UNIX_EPOCH},
 };
-use subtle::ConstantTimeEq as _;
 use subtle::ConstantTimeEq;
 use zeroize::Zeroizing;
 
