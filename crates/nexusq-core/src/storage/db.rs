@@ -597,7 +597,6 @@ mod tests {
         fs::remove_file(first_path).unwrap();
         fs::remove_file(second_path).unwrap();
     }
-    }
 
     #[test]
     fn to_bytes_then_from_bytes_roundtrip() {
