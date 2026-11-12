@@ -14,10 +14,10 @@ use std::ffi::{CStr, CString, c_char};
 
 use nexusq_core::prelude::*;
 
-/// Returns the library version as a static NUL-terminated string.
+/// Returns the library version as a static, borrowed NUL-terminated C string.
 ///
-/// The returned pointer is owned by the library and must not be
-/// freed by the caller.
+/// The pointer is owned by the library and must not be passed to
+/// `nexusq_string_free`.
 #[unsafe(no_mangle)]
 pub extern "C" fn nexusq_version() -> *const c_char {
     clear_last_error();
